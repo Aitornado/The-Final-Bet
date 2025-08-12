@@ -110,16 +110,123 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function calculatePotentialPayout(bet, pot) {
         const userOption = bet.option;
-        const oppositeOption = userOption === 'yes' ? 'no' : 'yes';
+        const winningSideTotal = pot.options[userOption].bits;
         
-        const userSideBits = pot.options[userOption].bits;
-        const oppositeSideBits = pot.options[oppositeOption].bits;
+        if (winningSideTotal === 0) return bet.amount; // No winners, return original bet
         
-        if (userSideBits === 0) return bet.amount;
+        // Calculate user's proportional share of the total pot
+        const proportionalPayout = Math.floor((pot.totalBits * bet.amount) / winningSideTotal);
         
-        // Simple payout calculation: (opposite side bits / user side bits) * user bet + user bet
-        const multiplier = oppositeSideBits > 0 ? (oppositeSideBits / userSideBits) : 1;
-        return Math.floor(bet.amount * (1 + multiplier));
+        // Note: This is just potential - actual payout includes remainder distribution
+        return proportionalPayout;
+    }
+    
+    function calculateActualPayouts(pot, winningOption) {
+        const winners = []; // In production, this would be all users who bet on winning option
+        const winningSideTotal = pot.options[winningOption].bits;
+        const totalPot = pot.totalBits;
+        
+        // If only user bet data available (current state), create winner list with just user
+        if (userBet && userBet.option === winningOption) {
+            winners.push({
+                userId: 'current_user',
+                amount: userBet.amount,
+                isCurrentUser: true
+            });
+        }
+        
+        if (winners.length === 0 || winningSideTotal === 0) {
+            console.log('No winners or no winning side total');
+            return [];
+        }
+        
+        // Calculate proportional payouts (rounded down)
+        const payouts = winners.map(winner => ({
+            ...winner,
+            basePayout: Math.floor((totalPot * winner.amount) / winningSideTotal)
+        }));
+        
+        // Calculate remainder
+        const totalBasePayout = payouts.reduce((sum, payout) => sum + payout.basePayout, 0);
+        const remainder = totalPot - totalBasePayout;
+        
+        // Find biggest bet to give remainder to
+        let biggestBetIndex = 0;
+        let biggestAmount = 0;
+        
+        payouts.forEach((payout, index) => {
+            if (payout.amount > biggestAmount) {
+                biggestAmount = payout.amount;
+                biggestBetIndex = index;
+            }
+        });
+        
+        // Add remainder to biggest bet
+        payouts[biggestBetIndex].finalPayout = payouts[biggestBetIndex].basePayout + remainder;
+        
+        // Set final payouts for others
+        payouts.forEach((payout, index) => {
+            if (index !== biggestBetIndex) {
+                payout.finalPayout = payout.basePayout;
+            }
+        });
+        
+        console.log('Payout calculation:', {
+            totalPot,
+            winningSideTotal,
+            winners: payouts.length,
+            remainder,
+            payouts: payouts.map(p => ({ amount: p.amount, payout: p.finalPayout }))
+        });
+        
+        return payouts;
+    }
+    
+    function resolvePrediction(winningOption) {
+        if (!currentPrediction) return;
+        
+        console.log(`🎯 Resolving prediction: ${winningOption} wins`);
+        
+        // Calculate actual payouts
+        const payouts = calculateActualPayouts(potData, winningOption);
+        
+        // Show result to user
+        if (userBet) {
+            const userPayout = payouts.find(p => p.isCurrentUser);
+            const won = userBet.option === winningOption;
+            
+            if (won && userPayout) {
+                const profit = userPayout.finalPayout - userBet.amount;
+                showNotification(`🎉 You won ${userPayout.finalPayout} Bits! (+${profit} profit)`, 'success');
+            } else {
+                showNotification(`😔 You lost ${userBet.amount} Bits. Better luck next time!`, 'info');
+            }
+        }
+        
+        // Update state
+        predictionState = 'resolved';
+        currentPrediction.outcome = winningOption;
+        currentPrediction.resolvedTime = Date.now();
+        
+        // Show results for a few seconds, then reset
+        setTimeout(() => {
+            showIdleState();
+            resetPredictionData();
+        }, 5000);
+    }
+    
+    function resetPredictionData() {
+        currentPrediction = null;
+        userBet = null;
+        selectedOption = null;
+        potData = {
+            totalBits: 0,
+            totalBets: 0,
+            options: {
+                yes: { bits: 0, bets: 0 },
+                no: { bits: 0, bets: 0 }
+            }
+        };
     }
     
     function setupEventListeners() {
@@ -278,16 +385,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }, potData);
     };
     
+    // Test functions for resolution
+    window.testResolveYes = function() {
+        resolvePrediction('yes');
+    };
+    
+    window.testResolveNo = function() {
+        resolvePrediction('no');
+    };
+    
     window.testBackToIdle = function() {
         showIdleState();
-        userBet = null;
-        potData = {
-            totalBits: 0,
-            totalBets: 0,
-            options: {
-                yes: { bits: 0, bets: 0 },
-                no: { bits: 0, bets: 0 }
-            }
-        };
+        resetPredictionData();
     };
 });
