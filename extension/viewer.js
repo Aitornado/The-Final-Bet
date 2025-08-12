@@ -313,3 +313,199 @@ class FinalBetExtension {
             
         } catch (error) {
             console.error('Error loading predictions:', error);
+            this.showError();
+        }
+    }
+    
+    async loadLeaderboard() {
+        try {
+            // TODO: Replace with real API call
+            // const response = await fetch('/api/leaderboard');
+            // const leaderboard = await response.json();
+            
+            // For now, use mock data
+            this.displayLeaderboard(this.mockData.leaderboard);
+            
+        } catch (error) {
+            console.error('Error loading leaderboard:', error);
+        }
+    }
+    
+    async loadRecentResults() {
+        try {
+            // TODO: Replace with real API call
+            // const response = await fetch('/api/recent-results');
+            // const results = await response.json();
+            
+            // For now, use mock data
+            this.displayRecentResults(this.mockData.results);
+            
+        } catch (error) {
+            console.error('Error loading recent results:', error);
+        }
+    }
+    
+    async sendBetToBackend(bet) {
+        try {
+            // TODO: Replace with real API call
+            // const response = await fetch('/api/bets', {
+            //     method: 'POST',
+            //     headers: {
+            //         'Content-Type': 'application/json',
+            //         'Authorization': `Bearer ${this.auth.token}`
+            //     },
+            //     body: JSON.stringify(bet)
+            // });
+            
+            console.log('Bet placed:', bet);
+            return { success: true };
+            
+        } catch (error) {
+            console.error('Error sending bet to backend:', error);
+            throw error;
+        }
+    }
+    
+    handleBroadcastMessage(message) {
+        switch (message.type) {
+            case 'new_prediction':
+                this.displayPrediction(message.data);
+                break;
+                
+            case 'prediction_ended':
+                this.disableBetting();
+                document.getElementById('prediction-timer').textContent = 'ENDED';
+                break;
+                
+            case 'prediction_result':
+                this.handlePredictionResult(message.data);
+                break;
+                
+            case 'leaderboard_update':
+                this.displayLeaderboard(message.data);
+                break;
+                
+            default:
+                console.log('Unknown message type:', message.type);
+        }
+    }
+    
+    handlePredictionResult(result) {
+        // Show result notification
+        if (this.userBet && this.userBet.option === result.winningOption) {
+            const payout = Math.floor(this.userBet.amount * result.odds);
+            this.showNotification(`You won ${payout} Bits! 🎉`, 'success');
+        } else if (this.userBet) {
+            this.showNotification(`Better luck next time! 😔`, 'info');
+        }
+        
+        // Reset for next prediction
+        this.userBet = null;
+        this.selectedOption = null;
+        this.enableBetting();
+        
+        // Update recent results
+        this.loadRecentResults();
+        this.loadLeaderboard();
+    }
+    
+    enableBetting() {
+        document.querySelectorAll('.option-btn').forEach(btn => {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            btn.classList.remove('selected');
+        });
+        
+        document.getElementById('place-bet').disabled = true; // Will be enabled when option selected
+        document.getElementById('bits-amount').disabled = false;
+        document.getElementById('user-bet').style.display = 'none';
+    }
+    
+    showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        
+        // Style the notification
+        Object.assign(notification.style, {
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            background: type === 'success' ? '#00f593' : '#9146ff',
+            color: 'white',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '600',
+            zIndex: '1000',
+            animation: 'slideIn 0.3s ease-out'
+        });
+        
+        // Add to document
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    }
+}
+
+// Add notification animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+    
+    .light-theme {
+        background: #f7f7f8;
+        color: #0e0e10;
+    }
+    
+    .light-theme .recent-results,
+    .light-theme .leaderboard {
+        background: #ffffff;
+        border-color: #e5e5e5;
+    }
+    
+    .light-theme .header {
+        border-color: #e5e5e5;
+    }
+`;
+document.head.appendChild(style);
+
+// Initialize the extension when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    new FinalBetExtension();
+});
+
+// Export for testing
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = FinalBetExtension;
+}
