@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Final Bet</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <div class="bits-diamond"></div>
+                <div class="dice"></div>
+            </div>
+            <h3>The Final Bet</h3>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading predictions...</p>
+        </div>
+
+        <!-- Main Interface -->
+        <div id="main-interface" class="main-interface" style="display: none;">
+            <!-- Active Prediction -->
+            <div id="active-prediction" class="prediction-card" style="display: none;">
+                <div class="prediction-header">
+                    <h4 id="prediction-question">Will streamer win this round?</h4>
+                    <div class="prediction-timer" id="prediction-timer">2:30</div>
+                </div>
+                
+                <div class="prediction-options">
+                    <button class="option-btn" id="option-yes" data-option="yes">
+                        <span class="option-text">YES</span>
+                        <span class="option-odds">2.1x</span>
+                    </button>
+                    <button class="option-btn" id="option-no" data-option="no">
+                        <span class="option-text">NO</span>
+                        <span class="option-odds">1.8x</span>
+                    </button>
+                </div>
+
+                <div class="betting-controls">
+                    <div class="bits-input">
+                        <div class="bits-icon"></div>
+                        <input type="number" id="bits-amount" min="1" max="10000" value="50" placeholder="Bits">
+                        <button id="place-bet" class="place-bet-btn">Place Bet</button>
+                    </div>
+                </div>
+
+                <div class="user-bet" id="user-bet" style="display: none;">
+                    <p>Your bet: <span id="user-bet-details"></span></p>
+                </div>
+            </div>
+
+            <!-- No Active Predictions -->
+            <div id="no-predictions" class="no-predictions">
+                <div class="empty-state">
+                    <div class="empty-icon">🎯</div>
+                    <h4>No Active Predictions</h4>
+                    <p>Waiting for the streamer to start a prediction...</p>
+                </div>
+            </div>
+
+            <!-- Recent Results -->
+            <div class="recent-results">
+                <h5>Recent Results</h5>
+                <div id="results-list" class="results-list">
+                    <!-- Results will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Leaderboard -->
+            <div class="leaderboard">
+                <h5>Top Predictors</h5>
+                <div id="leaderboard-list" class="leaderboard-list">
+                    <div class="leaderboard-item">
+                        <span class="rank">#1</span>
+                        <span class="username">Loading...</span>
+                        <span class="points">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-state" class="error-state" style="display: none;">
+            <div class="error-icon">⚠️</div>
+            <h4>Connection Error</h4>
+            <p>Unable to load predictions. Please try again.</p>
+            <button id="retry-btn" class="retry-btn">Retry</button>
+        </div>
+    </div>
+
+    <script src="viewer.js"></script>
+</body>
+</html>
