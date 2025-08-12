@@ -222,55 +222,34 @@
     <div class="config-section">
         <h2 class="section-title">Create New Prediction</h2>
         <form id="prediction-form">
+            <div id="game-templates-container">
+                <!-- Game mode selector and templates will be populated by JavaScript -->
+            </div>
+            
             <div class="form-group">
                 <label class="form-label" for="prediction-question">Prediction Question</label>
                 <input type="text" id="prediction-question" class="form-input" 
-                       placeholder="e.g., Will I win this round?" maxlength="100">
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label" for="prediction-type">Prediction Type</label>
-                <select id="prediction-type" class="form-select" onchange="updatePredictionOptions()">
-                    <option value="yes-no">Yes/No</option>
-                    <option value="multiple-choice">Multiple Choice</option>
-                    <option value="number-range">Number Range</option>
-                </select>
-            </div>
-            
-            <div id="options-container">
-                <div class="form-group">
-                    <label class="form-label">Options</label>
-                    <div class="button-group">
-                        <input type="text" class="form-input" placeholder="YES" style="width: 150px;" readonly>
-                        <input type="text" class="form-input" placeholder="NO" style="width: 150px;" readonly>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label" for="prediction-duration">Duration (minutes)</label>
-                <select id="prediction-duration" class="form-select">
-                    <option value="1">1 minute</option>
-                    <option value="2" selected>2 minutes</option>
-                    <option value="3">3 minutes</option>
-                    <option value="5">5 minutes</option>
-                    <option value="10">10 minutes</option>
-                </select>
+                       placeholder="e.g., Will I win this Cashout round?" maxlength="100">
             </div>
             
             <div class="button-group">
-                <button type="submit" class="btn btn-primary">Start Prediction</button>
-                <button type="button" class="btn btn-secondary" onclick="saveAsTemplate()">Save as Template</button>
+                <button type="submit" class="btn btn-primary">Start 60s Betting Window</button>
             </div>
         </form>
     </div>
 
     <div class="config-section">
-        <h2 class="section-title">Prediction Templates</h2>
-        <div id="templates-list">
-            <!-- Templates will be populated by JavaScript -->
+        <h2 class="section-title">Manual Resolution Workflow</h2>
+        <div style="background: #0e0e10; padding: 15px; border-radius: 8px; border: 1px solid #464649;">
+            <h4 style="color: #efeff1; margin-bottom: 10px;">How It Works:</h4>
+            <ol style="color: #adadb8; line-height: 1.6; padding-left: 20px;">
+                <li><strong>Start Betting Window</strong> - Viewers have ~60 seconds to place bets</li>
+                <li><strong>Close Betting</strong> - When ready to start the game/challenge</li>
+                <li><strong>Play Game</strong> - Game happens (9-40+ minutes), extension stays open</li>
+                <li><strong>Resolve Manually</strong> - Mark as SUCCESS or FAILED when game ends</li>
+                <li><strong>Payouts Distributed</strong> - Winners automatically receive their Bits</li>
+            </ol>
         </div>
-        <button class="btn btn-secondary" onclick="addNewTemplate()">+ Add New Template</button>
     </div>
 
     <div class="config-section">
