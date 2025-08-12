@@ -1,37 +1,42 @@
-// Updated config.js for manual resolution workflow
-class FinalBetConfig {
+// State Machine Config for The Final Bet
+class PredictionStateMachine {
     constructor() {
-        this.twitch = window.Twitch ? window.Twitch.ext : null;
-        this.auth = null;
-        this.currentPrediction = null;
-        this.predictionState = 'none'; // 'none', 'betting', 'locked', 'resolved'
+        this.states = {
+            IDLE: 'idle',
+            BETTING_OPEN: 'betting_open', 
+            BETTING_LOCKED: 'betting_locked',
+            RESOLVED: 'resolved'
+        };
         
-        // Updated templates for different game modes
+        this.currentState = this.states.IDLE;
+        this.currentPrediction = null;
+        
+        // Game mode templates
         this.gameTemplates = {
             'the-finals': [
-                { id: 'cashout-win', question: 'Will my team win this Cashout match?', type: 'yes-no' },
-                { id: 'bank-it-win', question: 'Will my team win this Bank It match?', type: 'yes-no' },
-                { id: 'power-shift-win', question: 'Will my team win this Power Shift match?', type: 'yes-no' },
-                { id: 'survival-time', question: 'Will I survive longer than 5 minutes?', type: 'yes-no' },
-                { id: 'elimination-count', question: 'Will I get 15+ eliminations this match?', type: 'yes-no' }
+                'Will my team win this Cashout match?',
+                'Will my team win this Bank It match?',
+                'Will my team win this Power Shift match?',
+                'Will I get 15+ eliminations this match?',
+                'Will I survive longer than 5 minutes?'
             ],
             'fps-general': [
-                { id: 'round-win', question: 'Will I win this round?', type: 'yes-no' },
-                { id: 'match-win', question: 'Will I win this match?', type: 'yes-no' },
-                { id: 'kill-count-10', question: 'Will I get 10+ kills this round?', type: 'yes-no' },
-                { id: 'kill-count-20', question: 'Will I get 20+ kills this match?', type: 'yes-no' },
-                { id: 'first-blood', question: 'Will I get first blood?', type: 'yes-no' }
+                'Will I win this round?',
+                'Will I win this match?',
+                'Will I get 10+ kills this round?',
+                'Will I get 20+ kills this match?',
+                'Will I get first blood?'
             ],
             'battle-royale': [
-                { id: 'top-placement', question: 'Will I finish in top 3?', type: 'yes-no' },
-                { id: 'victory-royale', question: 'Will I win this match?', type: 'yes-no' },
-                { id: 'early-elimination', question: 'Will I survive past 5 minutes?', type: 'yes-no' },
-                { id: 'kill-threshold', question: 'Will I get 5+ eliminations?', type: 'yes-no' }
+                'Will I finish in top 3?',
+                'Will I win this match?',
+                'Will I survive past 5 minutes?',
+                'Will I get 5+ eliminations?'
             ],
             'general': [
-                { id: 'objective-complete', question: 'Will I complete the objective?', type: 'yes-no' },
-                { id: 'challenge-success', question: 'Will I succeed at this challenge?', type: 'yes-no' },
-                { id: 'time-limit', question: 'Will I finish within the time limit?', type: 'yes-no' }
+                'Will I complete the objective?',
+                'Will I succeed at this challenge?',
+                'Will I finish within the time limit?'
             ]
         };
         
@@ -39,194 +44,295 @@ class FinalBetConfig {
     }
     
     init() {
-        console.log('Initializing Manual Resolution Config...');
+        console.log('🎯 Initializing Prediction State Machine...');
         this.setupEventListeners();
         this.loadGameTemplates();
-        this.updateInterface();
+        this.updateUI();
     }
     
     setupEventListeners() {
-        // Prediction form
-        document.getElementById('prediction-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.startBettingWindow();
-        });
+        // Start prediction button
+        const form = document.getElementById('prediction-form');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.startBettingWindow();
+            });
+        }
         
-        // Game mode selector
+        // Game mode change
         const gameModeSelect = document.getElementById('game-mode');
         if (gameModeSelect) {
             gameModeSelect.addEventListener('change', () => {
                 this.loadTemplatesForGameMode();
             });
         }
-    }
-    
-    updateInterface() {
-        this.updateQuickActions();
-        this.updatePredictionStatus();
-    }
-    
-    updateQuickActions() {
-        const quickActions = document.querySelector('.quick-actions');
         
-        // Clear existing actions
-        quickActions.innerHTML = '';
-        
-        if (this.predictionState === 'none') {
-            // No active prediction
-            quickActions.innerHTML = `
-                <div class="quick-action" onclick="scrollToCreatePrediction()">
-                    <div class="quick-action-title">🎯 Start New Prediction</div>
-                    <div class="quick-action-desc">Begin 60-second betting window</div>
-                </div>
-                <div class="quick-action" onclick="viewPastResults()">
-                    <div class="quick-action-title">📊 Past Results</div>
-                    <div class="quick-action-desc">View previous predictions</div>
-                </div>
-            `;
-        } else if (this.predictionState === 'betting') {
-            // Betting window open
-            quickActions.innerHTML = `
-                <div class="quick-action active-prediction" onclick="closeBetting()">
-                    <div class="quick-action-title">⏸️ Close Betting</div>
-                    <div class="quick-action-desc">End betting window, start game</div>
-                </div>
-                <div class="quick-action" onclick="cancelPrediction()">
-                    <div class="quick-action-title">❌ Cancel Prediction</div>
-                    <div class="quick-action-desc">Cancel and refund all bets</div>
-                </div>
-            `;
-        } else if (this.predictionState === 'locked') {
-            // Game in progress, waiting for result
-            quickActions.innerHTML = `
-                <div class="quick-action resolve-success" onclick="resolvePrediction('yes')">
-                    <div class="quick-action-title">✅ Mark as SUCCESS</div>
-                    <div class="quick-action-desc">I completed the challenge</div>
-                </div>
-                <div class="quick-action resolve-fail" onclick="resolvePrediction('no')">
-                    <div class="quick-action-title">❌ Mark as FAILED</div>
-                    <div class="quick-action-desc">I did not complete the challenge</div>
-                </div>
-                <div class="quick-action" onclick="cancelPrediction()">
-                    <div class="quick-action-title">🔄 Cancel & Refund</div>
-                    <div class="quick-action-desc">Something went wrong, refund all</div>
-                </div>
-            `;
-        }
+        console.log('✅ Event listeners set up');
     }
     
-    updatePredictionStatus() {
-        // Remove existing status banner
-        const existingBanner = document.getElementById('prediction-status-banner');
-        if (existingBanner) {
-            existingBanner.remove();
-        }
-        
-        if (this.predictionState !== 'none' && this.currentPrediction) {
-            const banner = document.createElement('div');
-            banner.id = 'prediction-status-banner';
-            
-            let statusInfo = '';
-            let statusColor = '';
-            
-            if (this.predictionState === 'betting') {
-                statusInfo = `
-                    <div style="font-weight: 600; margin-bottom: 5px;">🟢 BETTING OPEN</div>
-                    <div style="font-size: 14px; margin-bottom: 5px;">${this.currentPrediction.question}</div>
-                    <div style="font-size: 12px; opacity: 0.9;">Viewers can place bets - Close when ready to start game</div>
-                `;
-                statusColor = '#00f593';
-            } else if (this.predictionState === 'locked') {
-                statusInfo = `
-                    <div style="font-weight: 600; margin-bottom: 5px;">🔒 GAME IN PROGRESS</div>
-                    <div style="font-size: 14px; margin-bottom: 5px;">${this.currentPrediction.question}</div>
-                    <div style="font-size: 12px; opacity: 0.9;">Betting closed - Resolve when game ends</div>
-                `;
-                statusColor = '#ff9500';
-            }
-            
-            banner.style.cssText = `
-                background: linear-gradient(135deg, ${statusColor}22 0%, ${statusColor}11 100%);
-                border: 1px solid ${statusColor}55;
-                color: ${statusColor};
-                padding: 15px;
-                border-radius: 8px;
-                margin-bottom: 20px;
-                text-align: center;
-            `;
-            banner.innerHTML = statusInfo;
-            
-            document.body.insertBefore(banner, document.querySelector('.config-section'));
-        }
-    }
-    
+    // STATE MACHINE TRANSITIONS
     startBettingWindow() {
-        const question = document.getElementById('prediction-question').value.trim();
+        console.log('🚀 Starting betting window...');
+        
+        const question = document.getElementById('prediction-question')?.value?.trim();
         
         if (!question) {
             alert('Please enter a prediction question!');
             return;
         }
         
-        if (this.predictionState !== 'none') {
-            if (!confirm('There is already an active prediction. Cancel it and start new one?')) {
+        if (this.currentState !== this.states.IDLE) {
+            if (!confirm('There is already an active prediction. Cancel it and start new?')) {
                 return;
             }
         }
         
+        // Create new prediction
         this.currentPrediction = {
             id: `pred_${Date.now()}`,
             question: question,
             startTime: Date.now(),
-            status: 'betting'
+            bets: []
         };
         
-        this.predictionState = 'betting';
-        this.updateInterface();
-        this.showNotification('Betting window opened! Viewers can now place bets.', 'success');
+        // Transition to BETTING_OPEN
+        this.currentState = this.states.BETTING_OPEN;
+        this.updateUI();
+        this.showNotification('🟢 Betting window opened! Viewers can place bets.', 'success');
         
         // Clear form
-        document.getElementById('prediction-form').reset();
+        document.getElementById('prediction-question').value = '';
     }
     
     closeBetting() {
-        if (this.predictionState !== 'betting') return;
+        console.log('🔒 Closing betting window...');
         
-        this.predictionState = 'locked';
-        this.currentPrediction.bettingClosedTime = Date.now();
-        this.updateInterface();
-        this.showNotification('Betting closed! Game starting - resolve when finished.', 'info');
-    }
-    
-    resolvePrediction(outcome) {
-        if (this.predictionState !== 'locked') return;
-        
-        const outcomeText = outcome === 'yes' ? 'SUCCESS' : 'FAILED';
-        
-        if (!confirm(`Resolve prediction as ${outcomeText}?`)) {
+        if (this.currentState !== this.states.BETTING_OPEN) {
+            alert('No betting window is currently open!');
             return;
         }
         
+        // Transition to BETTING_LOCKED
+        this.currentState = this.states.BETTING_LOCKED;
+        this.currentPrediction.bettingClosedTime = Date.now();
+        this.updateUI();
+        this.showNotification('🔒 Betting closed! Game starting - resolve when finished.', 'info');
+    }
+    
+    resolvePrediction(outcome) {
+        console.log(`✅ Resolving prediction as: ${outcome}`);
+        
+        if (this.currentState !== this.states.BETTING_LOCKED) {
+            alert('No prediction is waiting for resolution!');
+            return;
+        }
+        
+        const outcomeText = outcome === 'yes' ? 'SUCCESS ✅' : 'FAILED ❌';
+        
+        if (!confirm(`Resolve prediction as ${outcomeText}?\\n\\n"${this.currentPrediction.question}"`)) {
+            return;
+        }
+        
+        // Resolve prediction
         this.currentPrediction.outcome = outcome;
         this.currentPrediction.resolvedTime = Date.now();
-        this.currentPrediction.status = 'resolved';
         
-        this.predictionState = 'none';
-        this.currentPrediction = null;
+        // Transition to RESOLVED (briefly) then back to IDLE
+        this.currentState = this.states.RESOLVED;
+        this.updateUI();
+        this.showNotification(`✅ Prediction resolved as ${outcomeText}! Payouts distributed.`, 'success');
         
-        this.updateInterface();
-        this.showNotification(`Prediction resolved as ${outcomeText}! Payouts distributed.`, 'success');
+        // Reset after 3 seconds
+        setTimeout(() => {
+            this.resetPrediction();
+        }, 3000);
     }
     
     cancelPrediction() {
+        console.log('❌ Cancelling prediction...');
+        
+        if (this.currentState === this.states.IDLE) {
+            alert('No active prediction to cancel!');
+            return;
+        }
+        
         if (!confirm('Cancel prediction and refund all bets?')) {
             return;
         }
         
-        this.predictionState = 'none';
+        this.showNotification('❌ Prediction cancelled. All bets refunded.', 'info');
+        this.resetPrediction();
+    }
+    
+    resetPrediction() {
+        this.currentState = this.states.IDLE;
         this.currentPrediction = null;
-        this.updateInterface();
-        this.showNotification('Prediction cancelled. All bets refunded.', 'info');
+        this.updateUI();
+    }
+    
+    // UI UPDATES
+    updateUI() {
+        console.log(`🔄 Updating UI for state: ${this.currentState}`);
+        this.updateQuickActions();
+        this.updateStatusBanner();
+        this.updateFormState();
+    }
+    
+    updateQuickActions() {
+        const quickActions = document.querySelector('.quick-actions');
+        if (!quickActions) return;
+        
+        quickActions.innerHTML = '';
+        
+        switch (this.currentState) {
+            case this.states.IDLE:
+                quickActions.innerHTML = `
+                    <div class="quick-action" onclick="scrollToForm()">
+                        <div class="quick-action-title">🎯 Start New Prediction</div>
+                        <div class="quick-action-desc">Begin 60-second betting window</div>
+                    </div>
+                    <div class="quick-action" onclick="showPastResults()">
+                        <div class="quick-action-title">📊 Past Results</div>
+                        <div class="quick-action-desc">View previous predictions</div>
+                    </div>
+                `;
+                break;
+                
+            case this.states.BETTING_OPEN:
+                quickActions.innerHTML = `
+                    <div class="quick-action betting-open" onclick="predictionManager.closeBetting()">
+                        <div class="quick-action-title">⏸️ Close Betting</div>
+                        <div class="quick-action-desc">End betting window, start game</div>
+                    </div>
+                    <div class="quick-action cancel" onclick="predictionManager.cancelPrediction()">
+                        <div class="quick-action-title">❌ Cancel Prediction</div>
+                        <div class="quick-action-desc">Cancel and refund all bets</div>
+                    </div>
+                `;
+                break;
+                
+            case this.states.BETTING_LOCKED:
+                quickActions.innerHTML = `
+                    <div class="quick-action resolve-success" onclick="predictionManager.resolvePrediction('yes')">
+                        <div class="quick-action-title">✅ Mark as SUCCESS</div>
+                        <div class="quick-action-desc">I completed the challenge</div>
+                    </div>
+                    <div class="quick-action resolve-fail" onclick="predictionManager.resolvePrediction('no')">
+                        <div class="quick-action-title">❌ Mark as FAILED</div>
+                        <div class="quick-action-desc">I did not complete the challenge</div>
+                    </div>
+                    <div class="quick-action cancel" onclick="predictionManager.cancelPrediction()">
+                        <div class="quick-action-title">🔄 Cancel & Refund</div>
+                        <div class="quick-action-desc">Something went wrong, refund all</div>
+                    </div>
+                `;
+                break;
+                
+            case this.states.RESOLVED:
+                quickActions.innerHTML = `
+                    <div class="quick-action resolved">
+                        <div class="quick-action-title">✅ Prediction Resolved</div>
+                        <div class="quick-action-desc">Returning to main menu...</div>
+                    </div>
+                `;
+                break;
+        }
+    }
+    
+    updateStatusBanner() {
+        // Remove existing banner
+        const existingBanner = document.getElementById('status-banner');
+        if (existingBanner) {
+            existingBanner.remove();
+        }
+        
+        if (this.currentState === this.states.IDLE) return;
+        
+        const banner = document.createElement('div');
+        banner.id = 'status-banner';
+        
+        let statusInfo = '';
+        let statusColor = '';
+        
+        switch (this.currentState) {
+            case this.states.BETTING_OPEN:
+                statusInfo = `
+                    <div class="status-icon">🟢</div>
+                    <div class="status-content">
+                        <div class="status-title">BETTING OPEN</div>
+                        <div class="status-question">${this.currentPrediction.question}</div>
+                        <div class="status-desc">Viewers can place bets - Close when ready to start game</div>
+                    </div>
+                `;
+                statusColor = '#00f593';
+                break;
+                
+            case this.states.BETTING_LOCKED:
+                statusInfo = `
+                    <div class="status-icon">🔒</div>
+                    <div class="status-content">
+                        <div class="status-title">GAME IN PROGRESS</div>
+                        <div class="status-question">${this.currentPrediction.question}</div>
+                        <div class="status-desc">Betting closed - Resolve when game ends</div>
+                    </div>
+                `;
+                statusColor = '#ff9500';
+                break;
+                
+            case this.states.RESOLVED:
+                const outcomeText = this.currentPrediction.outcome === 'yes' ? 'SUCCESS' : 'FAILED';
+                const outcomeIcon = this.currentPrediction.outcome === 'yes' ? '✅' : '❌';
+                statusInfo = `
+                    <div class="status-icon">${outcomeIcon}</div>
+                    <div class="status-content">
+                        <div class="status-title">RESOLVED: ${outcomeText}</div>
+                        <div class="status-question">${this.currentPrediction.question}</div>
+                        <div class="status-desc">Payouts distributed successfully</div>
+                    </div>
+                `;
+                statusColor = this.currentPrediction.outcome === 'yes' ? '#00f593' : '#ff6b6b';
+                break;
+        }
+        
+        banner.style.cssText = `
+            background: linear-gradient(135deg, ${statusColor}22 0%, ${statusColor}11 100%);
+            border: 2px solid ${statusColor}55;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            animation: slideIn 0.3s ease-out;
+        `;
+        banner.innerHTML = statusInfo;
+        
+        // Insert at top of main content
+        const firstSection = document.querySelector('.config-section');
+        if (firstSection) {
+            firstSection.parentNode.insertBefore(banner, firstSection);
+        }
+    }
+    
+    updateFormState() {
+        const form = document.getElementById('prediction-form');
+        const questionInput = document.getElementById('prediction-question');
+        const submitBtn = form?.querySelector('button[type="submit"]');
+        
+        if (this.currentState === this.states.IDLE) {
+            if (questionInput) questionInput.disabled = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Start 60s Betting Window';
+            }
+        } else {
+            if (questionInput) questionInput.disabled = true;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Prediction Active...';
+            }
+        }
     }
     
     loadGameTemplates() {
@@ -246,6 +352,14 @@ class FinalBetConfig {
             <div id="templates-for-mode"></div>
         `;
         
+        // Set up game mode change listener
+        const gameModeSelect = document.getElementById('game-mode');
+        if (gameModeSelect) {
+            gameModeSelect.addEventListener('change', () => {
+                this.loadTemplatesForGameMode();
+            });
+        }
+        
         this.loadTemplatesForGameMode();
     }
     
@@ -261,8 +375,8 @@ class FinalBetConfig {
                 <label class="form-label">Quick Templates</label>
                 <div class="template-grid">
                     ${templates.map(template => `
-                        <button type="button" class="template-btn" onclick="useTemplate('${template.id}', '${gameMode}')">
-                            ${template.question}
+                        <button type="button" class="template-btn" onclick="useTemplate('${template}')">
+                            ${template}
                         </button>
                     `).join('')}
                 </div>
@@ -270,15 +384,17 @@ class FinalBetConfig {
         `;
     }
     
-    useTemplate(templateId, gameMode) {
-        const template = this.gameTemplates[gameMode]?.find(t => t.id === templateId);
-        if (template) {
-            document.getElementById('prediction-question').value = template.question;
+    useTemplate(template) {
+        const questionInput = document.getElementById('prediction-question');
+        if (questionInput && this.currentState === this.states.IDLE) {
+            questionInput.value = template;
             this.showNotification('Template loaded!', 'success');
         }
     }
     
     showNotification(message, type = 'info') {
+        console.log(`📢 ${message}`);
+        
         const notification = document.createElement('div');
         notification.textContent = message;
         notification.style.cssText = `
@@ -287,11 +403,13 @@ class FinalBetConfig {
             right: 20px;
             background: ${type === 'success' ? '#00f593' : type === 'error' ? '#ff6b6b' : '#9146ff'};
             color: white;
-            padding: 12px 20px;
+            padding: 15px 25px;
             border-radius: 8px;
             font-weight: 600;
+            font-size: 14px;
             z-index: 1000;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease-out;
         `;
         
         document.body.appendChild(notification);
@@ -300,47 +418,34 @@ class FinalBetConfig {
             if (notification.parentNode) {
                 notification.parentNode.removeChild(notification);
             }
-        }, 3000);
+        }, 4000);
     }
 }
 
 // Global functions
-function scrollToCreatePrediction() {
-    document.getElementById('prediction-form').scrollIntoView({ behavior: 'smooth' });
-    document.getElementById('prediction-question').focus();
+function scrollToForm() {
+    document.getElementById('prediction-form')?.scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('prediction-question')?.focus();
 }
 
-function closeBetting() {
-    if (window.finalBetConfig) {
-        window.finalBetConfig.closeBetting();
+function useTemplate(template) {
+    if (window.predictionManager) {
+        window.predictionManager.useTemplate(template);
     }
 }
 
-function resolvePrediction(outcome) {
-    if (window.finalBetConfig) {
-        window.finalBetConfig.resolvePrediction(outcome);
-    }
+function showPastResults() {
+    alert('📊 Past results viewer coming in future update!');
 }
 
-function cancelPrediction() {
-    if (window.finalBetConfig) {
-        window.finalBetConfig.cancelPrediction();
-    }
-}
-
-function useTemplate(templateId, gameMode) {
-    if (window.finalBetConfig) {
-        window.finalBetConfig.useTemplate(templateId, gameMode);
-    }
-}
-
-function viewPastResults() {
-    alert('Past results viewer coming in future update!');
-}
-
-// Add CSS for new elements
+// CSS for new styling
 const style = document.createElement('style');
 style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    
     .template-grid {
         display: grid;
         grid-template-columns: 1fr;
@@ -365,7 +470,7 @@ style.textContent = `
         background: rgba(220, 38, 38, 0.05);
     }
     
-    .quick-action.active-prediction {
+    .quick-action.betting-open {
         border-color: #00f593;
         background: rgba(0, 245, 147, 0.05);
     }
@@ -379,14 +484,52 @@ style.textContent = `
         border-color: #ff6b6b;
         background: rgba(255, 107, 107, 0.1);
     }
+    
+    .quick-action.cancel {
+        border-color: #666;
+    }
+    
+    .quick-action.resolved {
+        border-color: #00f593;
+        background: rgba(0, 245, 147, 0.1);
+        cursor: default;
+    }
+    
+    .status-icon {
+        font-size: 24px;
+        min-width: 30px;
+    }
+    
+    .status-content {
+        flex: 1;
+    }
+    
+    .status-title {
+        font-weight: 600;
+        font-size: 16px;
+        margin-bottom: 5px;
+    }
+    
+    .status-question {
+        font-size: 14px;
+        margin-bottom: 5px;
+        opacity: 0.9;
+    }
+    
+    .status-desc {
+        font-size: 12px;
+        opacity: 0.8;
+    }
 `;
 document.head.appendChild(style);
 
-// Initialize
+// Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    window.finalBetConfig = new FinalBetConfig();
+    console.log('🚀 Page loaded, initializing Prediction Manager...');
+    window.predictionManager = new PredictionStateMachine();
 });
 
+// Export for testing
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = FinalBetConfig;
+    module.exports = PredictionStateMachine;
 }
