@@ -271,16 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     window.testGameInProgress = function() {
-        // Simulate some bets being placed
-        potData = {
-            totalBits: 350,
-            totalBets: 8,
-            options: {
-                yes: { bits: 200, bets: 5 },
-                no: { bits: 150, bets: 3 }
-            }
-        };
-        
+        // Show game progress with current pot data (only user's bet if any)
         showGameInProgress({
             id: 'test_pred',
             question: 'Will my team win this match?'
