@@ -352,56 +352,74 @@ body {
     letter-spacing: 0.5px;
 }
 
-.vote-option {
-    margin-bottom: 12px;
+.vote-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
 }
 
-.vote-option:last-child {
-    margin-bottom: 0;
-}
-
-.vote-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 6px;
-    font-size: 12px;
-}
-
-.vote-label {
-    font-weight: 600;
-    min-width: 30px;
-}
-
-.vote-stats {
-    opacity: 0.9;
-    font-size: 11px;
-}
-
-.vote-percentage {
-    font-weight: 600;
-    min-width: 35px;
-    text-align: right;
-}
-
-.vote-bar {
-    background: rgba(255, 255, 255, 0.2);
-    height: 6px;
-    border-radius: 3px;
+.vote-option-card {
+    background: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: 12px;
+    position: relative;
     overflow: hidden;
 }
 
-.vote-fill {
-    height: 100%;
-    transition: width 0.3s ease;
-    border-radius: 3px;
+.vote-option-card.yes-card {
+    border-color: rgba(0, 245, 147, 0.5);
 }
 
-.yes-fill {
+.vote-option-card.no-card {
+    border-color: rgba(255, 107, 107, 0.5);
+}
+
+.vote-option-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.vote-option-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+}
+
+.vote-option-percentage {
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+}
+
+.vote-option-stats {
+    font-size: 11px;
+    opacity: 0.8;
+    color: white;
+    margin-bottom: 8px;
+}
+
+.vote-progress-bar {
+    background: rgba(255, 255, 255, 0.2);
+    height: 4px;
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+
+.vote-progress-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    border-radius: 2px;
+}
+
+.yes-progress {
     background: rgba(0, 245, 147, 0.8);
 }
 
-.no-fill {
+.no-progress {
     background: rgba(255, 107, 107, 0.8);
 }
 
