@@ -11,34 +11,12 @@ class PredictionStateMachine {
         this.currentState = this.states.IDLE;
         this.currentPrediction = null;
         
-        // Game mode templates
-        this.gameTemplates = {
-            'the-finals': [
-                'Will my team win this Cashout match?',
-                'Will my team win this Bank It match?',
-                'Will my team win this Power Shift match?',
-                'Will I get 15+ eliminations this match?',
-                'Will I survive longer than 5 minutes?'
-            ],
-            'fps-general': [
-                'Will I win this round?',
-                'Will I win this match?',
-                'Will I get 10+ kills this round?',
-                'Will I get 20+ kills this match?',
-                'Will I get first blood?'
-            ],
-            'battle-royale': [
-                'Will I finish in top 3?',
-                'Will I win this match?',
-                'Will I survive past 5 minutes?',
-                'Will I get 5+ eliminations?'
-            ],
-            'general': [
-                'Will I complete the objective?',
-                'Will I succeed at this challenge?',
-                'Will I finish within the time limit?'
-            ]
-        };
+        // Simplified templates for The Finals
+        this.gameTemplates = [
+            'Will my team win this match?',
+            'Will my team win this round?',
+            'Will I break 30 eliminations?'
+        ];
         
         this.init();
     }
@@ -60,14 +38,7 @@ class PredictionStateMachine {
             });
         }
         
-        // Game mode change
-        const gameModeSelect = document.getElementById('game-mode');
-        if (gameModeSelect) {
-            gameModeSelect.addEventListener('change', () => {
-                this.loadTemplatesForGameMode();
-            });
-        }
-        
+        // Remove game mode change listener since we don't have it anymore
         console.log('✅ Event listeners set up');
     }
     
@@ -341,40 +312,13 @@ class PredictionStateMachine {
         
         container.innerHTML = `
             <div class="form-group">
-                <label class="form-label" for="game-mode">Game Mode</label>
-                <select id="game-mode" class="form-select">
-                    <option value="the-finals">The Finals</option>
-                    <option value="fps-general">FPS General</option>
-                    <option value="battle-royale">Battle Royale</option>
-                    <option value="general">General Gaming</option>
-                </select>
+                <label class="form-label">Game: The Finals</label>
+                <div class="game-info">Playing The Finals - Choose a quick template below or create custom prediction</div>
             </div>
-            <div id="templates-for-mode"></div>
-        `;
-        
-        // Set up game mode change listener
-        const gameModeSelect = document.getElementById('game-mode');
-        if (gameModeSelect) {
-            gameModeSelect.addEventListener('change', () => {
-                this.loadTemplatesForGameMode();
-            });
-        }
-        
-        this.loadTemplatesForGameMode();
-    }
-    
-    loadTemplatesForGameMode() {
-        const gameMode = document.getElementById('game-mode')?.value || 'the-finals';
-        const container = document.getElementById('templates-for-mode');
-        if (!container) return;
-        
-        const templates = this.gameTemplates[gameMode] || [];
-        
-        container.innerHTML = `
             <div class="form-group">
                 <label class="form-label">Quick Templates</label>
                 <div class="template-grid">
-                    ${templates.map(template => `
+                    ${this.gameTemplates.map(template => `
                         <button type="button" class="template-btn" onclick="useTemplate('${template}')">
                             ${template}
                         </button>
@@ -382,6 +326,10 @@ class PredictionStateMachine {
                 </div>
             </div>
         `;
+    }
+    
+    loadTemplatesForGameMode() {
+        // No longer needed - removed game mode switching
     }
     
     useTemplate(template) {
@@ -468,6 +416,16 @@ style.textContent = `
     .template-btn:hover {
         border-color: #dc2626;
         background: rgba(220, 38, 38, 0.05);
+    }
+    
+    .game-info {
+        background: #0e0e10;
+        border: 1px solid #464649;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #adadb8;
+        margin-top: 5px;
     }
     
     .quick-action.betting-open {
