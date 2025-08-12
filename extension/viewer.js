@@ -237,8 +237,8 @@ class FinalBetExtension {
             }
         });
         
-        // Start timer
-        this.startPredictionTimer(prediction.timeLeft);
+        // Start timer COMMENT OUT FOR NOW
+        //this.startPredictionTimer(prediction.timeLeft);
         
         // Show prediction
         document.getElementById('active-prediction').style.display = 'block';
