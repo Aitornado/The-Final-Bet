@@ -161,7 +161,7 @@ class PredictionStateMachine {
                 quickActions.innerHTML = `
                     <div class="quick-action" onclick="scrollToForm()">
                         <div class="quick-action-title">🎯 Start New Prediction</div>
-                        <div class="quick-action-desc">Begin 60-second betting window</div>
+                        <div class="quick-action-desc">Begin betting window</div>
                     </div>
                     <div class="quick-action" onclick="showPastResults()">
                         <div class="quick-action-title">📊 Past Results</div>
@@ -295,7 +295,7 @@ class PredictionStateMachine {
             if (questionInput) questionInput.disabled = false;
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Start 60s Betting Window';
+                submitBtn.textContent = 'Start Betting Window';
             }
         } else {
             if (questionInput) questionInput.disabled = true;
