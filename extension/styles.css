@@ -269,7 +269,178 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-/* No Predictions State */
+/* Game in Progress Display */
+.game-progress {
+    background: linear-gradient(135deg, #ff9500 0%, #ffb340 100%);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 12px rgba(255, 149, 0, 0.2);
+    color: white;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.progress-header h4 {
+    font-size: 16px;
+    font-weight: 600;
+    flex: 1;
+}
+
+.game-status {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.pot-summary {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.pot-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.pot-stat {
+    text-align: center;
+}
+
+.pot-label {
+    display: block;
+    font-size: 11px;
+    opacity: 0.8;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.pot-value {
+    display: block;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.vote-breakdown {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.vote-breakdown h5 {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.vote-option {
+    margin-bottom: 12px;
+}
+
+.vote-option:last-child {
+    margin-bottom: 0;
+}
+
+.vote-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+
+.vote-label {
+    font-weight: 600;
+    min-width: 30px;
+}
+
+.vote-stats {
+    opacity: 0.9;
+    font-size: 11px;
+}
+
+.vote-percentage {
+    font-weight: 600;
+    min-width: 35px;
+    text-align: right;
+}
+
+.vote-bar {
+    background: rgba(255, 255, 255, 0.2);
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.vote-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    border-radius: 3px;
+}
+
+.yes-fill {
+    background: rgba(0, 245, 147, 0.8);
+}
+
+.no-fill {
+    background: rgba(255, 107, 107, 0.8);
+}
+
+.user-bet-status {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.user-bet-card {
+    text-align: center;
+}
+
+.bet-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.bet-option {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.bet-amount {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.potential-payout {
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.potential-payout strong {
+    color: #00f593;
+}
 .no-predictions {
     text-align: center;
     padding: 30px 20px;
