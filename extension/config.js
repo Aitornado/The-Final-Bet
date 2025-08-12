@@ -1,582 +1,392 @@
-// Twitch Extension Configuration JavaScript
+// Updated config.js for manual resolution workflow
 class FinalBetConfig {
     constructor() {
         this.twitch = window.Twitch ? window.Twitch.ext : null;
         this.auth = null;
         this.currentPrediction = null;
+        this.predictionState = 'none'; // 'none', 'betting', 'locked', 'resolved'
         
-        // Default templates
-        this.defaultTemplates = [
-            {
-                id: 'round-win',
-                name: 'Round Victory',
-                question: 'Will I win this round?',
-                type: 'yes-no',
-                game: 'General'
-            },
-            {
-                id: 'match-win',
-                name: 'Match Victory',
-                question: 'Will I win this match?',
-                type: 'yes-no',
-                game: 'General'
-            },
-            {
-                id: 'elimination-count',
-                name: '10+ Eliminations',
-                question: 'Will I get 10+ eliminations this round?',
-                type: 'yes-no',
-                game: 'FPS'
-            },
-            {
-                id: 'finals-specific',
-                name: 'Finals - Cashout Win',
-                question: 'Will my team win this Cashout match?',
-                type: 'yes-no',
-                game: 'The Finals'
-            }
-        ];
+        // Updated templates for different game modes
+        this.gameTemplates = {
+            'the-finals': [
+                { id: 'cashout-win', question: 'Will my team win this Cashout match?', type: 'yes-no' },
+                { id: 'bank-it-win', question: 'Will my team win this Bank It match?', type: 'yes-no' },
+                { id: 'power-shift-win', question: 'Will my team win this Power Shift match?', type: 'yes-no' },
+                { id: 'survival-time', question: 'Will I survive longer than 5 minutes?', type: 'yes-no' },
+                { id: 'elimination-count', question: 'Will I get 15+ eliminations this match?', type: 'yes-no' }
+            ],
+            'fps-general': [
+                { id: 'round-win', question: 'Will I win this round?', type: 'yes-no' },
+                { id: 'match-win', question: 'Will I win this match?', type: 'yes-no' },
+                { id: 'kill-count-10', question: 'Will I get 10+ kills this round?', type: 'yes-no' },
+                { id: 'kill-count-20', question: 'Will I get 20+ kills this match?', type: 'yes-no' },
+                { id: 'first-blood', question: 'Will I get first blood?', type: 'yes-no' }
+            ],
+            'battle-royale': [
+                { id: 'top-placement', question: 'Will I finish in top 3?', type: 'yes-no' },
+                { id: 'victory-royale', question: 'Will I win this match?', type: 'yes-no' },
+                { id: 'early-elimination', question: 'Will I survive past 5 minutes?', type: 'yes-no' },
+                { id: 'kill-threshold', question: 'Will I get 5+ eliminations?', type: 'yes-no' }
+            ],
+            'general': [
+                { id: 'objective-complete', question: 'Will I complete the objective?', type: 'yes-no' },
+                { id: 'challenge-success', question: 'Will I succeed at this challenge?', type: 'yes-no' },
+                { id: 'time-limit', question: 'Will I finish within the time limit?', type: 'yes-no' }
+            ]
+        };
         
         this.init();
     }
     
     init() {
-        console.log('Initializing The Final Bet Configuration...');
-        
-        if (this.twitch) {
-            this.twitch.onAuthorized((auth) => {
-                this.auth = auth;
-                this.loadConfiguration();
-            });
-            
-            this.twitch.configuration.onChanged(() => {
-                this.loadConfiguration();
-            });
-        }
-        
+        console.log('Initializing Manual Resolution Config...');
         this.setupEventListeners();
-        this.loadTemplates();
-        this.loadCurrentSettings();
+        this.loadGameTemplates();
+        this.updateInterface();
     }
     
     setupEventListeners() {
-        // Prediction form submission
+        // Prediction form
         document.getElementById('prediction-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            this.startPrediction();
+            this.startBettingWindow();
         });
         
-        // Settings auto-save
-        ['min-bits', 'max-bits', 'auto-resolve'].forEach(id => {
-            document.getElementById(id).addEventListener('change', () => {
-                this.saveSettings();
+        // Game mode selector
+        const gameModeSelect = document.getElementById('game-mode');
+        if (gameModeSelect) {
+            gameModeSelect.addEventListener('change', () => {
+                this.loadTemplatesForGameMode();
             });
-        });
-    }
-    
-    loadConfiguration() {
-        if (this.twitch && this.twitch.configuration) {
-            const config = this.twitch.configuration.broadcaster || {};
-            
-            // Load current prediction if any
-            if (config.currentPrediction) {
-                this.currentPrediction = JSON.parse(config.currentPrediction);
-                this.updateUIForActivePrediction();
-            }
-            
-            // Load settings
-            if (config.settings) {
-                const settings = JSON.parse(config.settings);
-                this.applySettings(settings);
-            }
         }
     }
     
-    updatePredictionOptions() {
-        const type = document.getElementById('prediction-type').value;
-        const container = document.getElementById('options-container');
+    updateInterface() {
+        this.updateQuickActions();
+        this.updatePredictionStatus();
+    }
+    
+    updateQuickActions() {
+        const quickActions = document.querySelector('.quick-actions');
         
-        switch (type) {
-            case 'yes-no':
-                container.innerHTML = `
-                    <div class="form-group">
-                        <label class="form-label">Options</label>
-                        <div class="button-group">
-                            <input type="text" class="form-input" placeholder="YES" style="width: 150px;" readonly>
-                            <input type="text" class="form-input" placeholder="NO" style="width: 150px;" readonly>
-                        </div>
-                    </div>
-                `;
-                break;
-                
-            case 'multiple-choice':
-                container.innerHTML = `
-                    <div class="form-group">
-                        <label class="form-label">Options</label>
-                        <div id="choice-options">
-                            <div class="button-group" style="margin-bottom: 8px;">
-                                <input type="text" class="form-input" placeholder="Option 1" style="width: 200px;">
-                                <button type="button" class="btn btn-secondary btn-small" onclick="removeOption(this)">Remove</button>
-                            </div>
-                            <div class="button-group" style="margin-bottom: 8px;">
-                                <input type="text" class="form-input" placeholder="Option 2" style="width: 200px;">
-                                <button type="button" class="btn btn-secondary btn-small" onclick="removeOption(this)">Remove</button>
-                            </div>
-                        </div>
-                        <button type="button" class="btn btn-secondary btn-small" onclick="addOption()">+ Add Option</button>
-                    </div>
-                `;
-                break;
-                
-            case 'number-range':
-                container.innerHTML = `
-                    <div class="form-group">
-                        <label class="form-label">Number Range</label>
-                        <div class="button-group">
-                            <div>
-                                <label class="form-label">Minimum</label>
-                                <input type="number" class="form-input" placeholder="0" style="width: 100px;">
-                            </div>
-                            <div>
-                                <label class="form-label">Maximum</label>
-                                <input type="number" class="form-input" placeholder="20" style="width: 100px;">
-                            </div>
-                            <div>
-                                <label class="form-label">Step</label>
-                                <input type="number" class="form-input" placeholder="1" style="width: 80px;">
-                            </div>
-                        </div>
-                    </div>
-                `;
-                break;
+        // Clear existing actions
+        quickActions.innerHTML = '';
+        
+        if (this.predictionState === 'none') {
+            // No active prediction
+            quickActions.innerHTML = `
+                <div class="quick-action" onclick="scrollToCreatePrediction()">
+                    <div class="quick-action-title">🎯 Start New Prediction</div>
+                    <div class="quick-action-desc">Begin 60-second betting window</div>
+                </div>
+                <div class="quick-action" onclick="viewPastResults()">
+                    <div class="quick-action-title">📊 Past Results</div>
+                    <div class="quick-action-desc">View previous predictions</div>
+                </div>
+            `;
+        } else if (this.predictionState === 'betting') {
+            // Betting window open
+            quickActions.innerHTML = `
+                <div class="quick-action active-prediction" onclick="closeBetting()">
+                    <div class="quick-action-title">⏸️ Close Betting</div>
+                    <div class="quick-action-desc">End betting window, start game</div>
+                </div>
+                <div class="quick-action" onclick="cancelPrediction()">
+                    <div class="quick-action-title">❌ Cancel Prediction</div>
+                    <div class="quick-action-desc">Cancel and refund all bets</div>
+                </div>
+            `;
+        } else if (this.predictionState === 'locked') {
+            // Game in progress, waiting for result
+            quickActions.innerHTML = `
+                <div class="quick-action resolve-success" onclick="resolvePrediction('yes')">
+                    <div class="quick-action-title">✅ Mark as SUCCESS</div>
+                    <div class="quick-action-desc">I completed the challenge</div>
+                </div>
+                <div class="quick-action resolve-fail" onclick="resolvePrediction('no')">
+                    <div class="quick-action-title">❌ Mark as FAILED</div>
+                    <div class="quick-action-desc">I did not complete the challenge</div>
+                </div>
+                <div class="quick-action" onclick="cancelPrediction()">
+                    <div class="quick-action-title">🔄 Cancel & Refund</div>
+                    <div class="quick-action-desc">Something went wrong, refund all</div>
+                </div>
+            `;
         }
     }
     
-    async startPrediction() {
+    updatePredictionStatus() {
+        // Remove existing status banner
+        const existingBanner = document.getElementById('prediction-status-banner');
+        if (existingBanner) {
+            existingBanner.remove();
+        }
+        
+        if (this.predictionState !== 'none' && this.currentPrediction) {
+            const banner = document.createElement('div');
+            banner.id = 'prediction-status-banner';
+            
+            let statusInfo = '';
+            let statusColor = '';
+            
+            if (this.predictionState === 'betting') {
+                statusInfo = `
+                    <div style="font-weight: 600; margin-bottom: 5px;">🟢 BETTING OPEN</div>
+                    <div style="font-size: 14px; margin-bottom: 5px;">${this.currentPrediction.question}</div>
+                    <div style="font-size: 12px; opacity: 0.9;">Viewers can place bets - Close when ready to start game</div>
+                `;
+                statusColor = '#00f593';
+            } else if (this.predictionState === 'locked') {
+                statusInfo = `
+                    <div style="font-weight: 600; margin-bottom: 5px;">🔒 GAME IN PROGRESS</div>
+                    <div style="font-size: 14px; margin-bottom: 5px;">${this.currentPrediction.question}</div>
+                    <div style="font-size: 12px; opacity: 0.9;">Betting closed - Resolve when game ends</div>
+                `;
+                statusColor = '#ff9500';
+            }
+            
+            banner.style.cssText = `
+                background: linear-gradient(135deg, ${statusColor}22 0%, ${statusColor}11 100%);
+                border: 1px solid ${statusColor}55;
+                color: ${statusColor};
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                text-align: center;
+            `;
+            banner.innerHTML = statusInfo;
+            
+            document.body.insertBefore(banner, document.querySelector('.config-section'));
+        }
+    }
+    
+    startBettingWindow() {
         const question = document.getElementById('prediction-question').value.trim();
-        const duration = parseInt(document.getElementById('prediction-duration').value);
-        const type = document.getElementById('prediction-type').value;
         
         if (!question) {
             alert('Please enter a prediction question!');
             return;
         }
         
-        if (this.currentPrediction) {
-            if (!confirm('There is already an active prediction. End it and start a new one?')) {
+        if (this.predictionState !== 'none') {
+            if (!confirm('There is already an active prediction. Cancel it and start new one?')) {
                 return;
             }
-            await this.endCurrentPrediction();
         }
         
-        const prediction = {
+        this.currentPrediction = {
             id: `pred_${Date.now()}`,
             question: question,
-            type: type,
-            duration: duration,
             startTime: Date.now(),
-            endTime: Date.now() + (duration * 60 * 1000),
-            status: 'active',
-            options: this.getPredictionOptions(type)
+            status: 'betting'
         };
         
-        try {
-            await this.savePrediction(prediction);
-            await this.broadcastPrediction(prediction);
-            
-            this.currentPrediction = prediction;
-            this.updateUIForActivePrediction();
-            this.showNotification('Prediction started successfully!', 'success');
-            
-            // Clear the form
-            document.getElementById('prediction-form').reset();
-            
-        } catch (error) {
-            console.error('Error starting prediction:', error);
-            alert('Failed to start prediction. Please try again.');
-        }
+        this.predictionState = 'betting';
+        this.updateInterface();
+        this.showNotification('Betting window opened! Viewers can now place bets.', 'success');
+        
+        // Clear form
+        document.getElementById('prediction-form').reset();
     }
     
-    getPredictionOptions(type) {
-        switch (type) {
-            case 'yes-no':
-                return [
-                    { id: 'yes', text: 'YES', odds: 2.0 },
-                    { id: 'no', text: 'NO', odds: 2.0 }
-                ];
-                
-            case 'multiple-choice':
-                const options = [];
-                const inputs = document.querySelectorAll('#choice-options input');
-                inputs.forEach((input, index) => {
-                    if (input.value.trim()) {
-                        options.push({
-                            id: `option_${index}`,
-                            text: input.value.trim(),
-                            odds: 2.0
-                        });
-                    }
-                });
-                return options;
-                
-            case 'number-range':
-                // For number range, create options based on the range
-                return [
-                    { id: 'under', text: 'Under Target', odds: 2.0 },
-                    { id: 'over', text: 'Over Target', odds: 2.0 }
-                ];
-                
-            default:
-                return [];
-        }
+    closeBetting() {
+        if (this.predictionState !== 'betting') return;
+        
+        this.predictionState = 'locked';
+        this.currentPrediction.bettingClosedTime = Date.now();
+        this.updateInterface();
+        this.showNotification('Betting closed! Game starting - resolve when finished.', 'info');
     }
     
-    async endCurrentPrediction() {
-        if (!this.currentPrediction) {
-            alert('No active prediction to end!');
+    resolvePrediction(outcome) {
+        if (this.predictionState !== 'locked') return;
+        
+        const outcomeText = outcome === 'yes' ? 'SUCCESS' : 'FAILED';
+        
+        if (!confirm(`Resolve prediction as ${outcomeText}?`)) {
             return;
         }
         
-        try {
-            // Update prediction status
-            this.currentPrediction.status = 'ended';
-            this.currentPrediction.endTime = Date.now();
-            
-            await this.savePrediction(this.currentPrediction);
-            await this.broadcastPredictionEnd(this.currentPrediction);
-            
-            this.currentPrediction = null;
-            this.updateUIForActivePrediction();
-            this.showNotification('Prediction ended successfully!', 'success');
-            
-        } catch (error) {
-            console.error('Error ending prediction:', error);
-            alert('Failed to end prediction. Please try again.');
-        }
+        this.currentPrediction.outcome = outcome;
+        this.currentPrediction.resolvedTime = Date.now();
+        this.currentPrediction.status = 'resolved';
+        
+        this.predictionState = 'none';
+        this.currentPrediction = null;
+        
+        this.updateInterface();
+        this.showNotification(`Prediction resolved as ${outcomeText}! Payouts distributed.`, 'success');
     }
     
-    updateUIForActivePrediction() {
-        const quickActions = document.querySelector('.quick-actions');
-        const hasActive = !!this.currentPrediction;
-        
-        // Update quick action states
-        const newPredBtn = quickActions.children[0];
-        const endPredBtn = quickActions.children[1];
-        
-        if (hasActive) {
-            newPredBtn.style.opacity = '0.5';
-            newPredBtn.style.cursor = 'not-allowed';
-            endPredBtn.style.opacity = '1';
-            endPredBtn.style.cursor = 'pointer';
-        } else {
-            newPredBtn.style.opacity = '1';
-            newPredBtn.style.cursor = 'pointer';
-            endPredBtn.style.opacity = '0.5';
-            endPredBtn.style.cursor = 'not-allowed';
+    cancelPrediction() {
+        if (!confirm('Cancel prediction and refund all bets?')) {
+            return;
         }
         
-        // Show current prediction info if active
-        if (hasActive) {
-            const timeLeft = Math.max(0, this.currentPrediction.endTime - Date.now());
-            const minutes = Math.floor(timeLeft / 60000);
-            const seconds = Math.floor((timeLeft % 60000) / 1000);
-            
-            if (!document.getElementById('active-prediction-banner')) {
-                const banner = document.createElement('div');
-                banner.id = 'active-prediction-banner';
-                banner.style.cssText = `
-                    background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
-                    color: white;
-                    padding: 15px;
-                    border-radius: 8px;
-                    margin-bottom: 20px;
-                    text-align: center;
-                `;
-                
-                banner.innerHTML = `
-                    <div style="font-weight: 600; margin-bottom: 5px;">Active Prediction</div>
-                    <div style="font-size: 14px; margin-bottom: 5px;">${this.currentPrediction.question}</div>
-                    <div style="font-size: 12px; opacity: 0.9;">Time remaining: ${minutes}:${seconds.toString().padStart(2, '0')}</div>
-                `;
-                
-                document.body.insertBefore(banner, document.querySelector('.config-section'));
-            }
-        } else {
-            const banner = document.getElementById('active-prediction-banner');
-            if (banner) {
-                banner.remove();
-            }
-        }
+        this.predictionState = 'none';
+        this.currentPrediction = null;
+        this.updateInterface();
+        this.showNotification('Prediction cancelled. All bets refunded.', 'info');
     }
     
-    loadTemplates() {
-        const templatesList = document.getElementById('templates-list');
-        templatesList.innerHTML = '';
+    loadGameTemplates() {
+        const container = document.getElementById('game-templates-container');
+        if (!container) return;
         
-        this.defaultTemplates.forEach(template => {
-            const templateElement = document.createElement('div');
-            templateElement.className = 'prediction-template';
-            
-            templateElement.innerHTML = `
-                <div class="template-header">
-                    <div class="template-name">${template.name}</div>
-                    <div class="template-actions">
-                        <button class="btn btn-primary btn-small" onclick="useTemplate('${template.id}')">Use</button>
-                        <button class="btn btn-secondary btn-small" onclick="editTemplate('${template.id}')">Edit</button>
-                    </div>
+        container.innerHTML = `
+            <div class="form-group">
+                <label class="form-label" for="game-mode">Game Mode</label>
+                <select id="game-mode" class="form-select">
+                    <option value="the-finals">The Finals</option>
+                    <option value="fps-general">FPS General</option>
+                    <option value="battle-royale">Battle Royale</option>
+                    <option value="general">General Gaming</option>
+                </select>
+            </div>
+            <div id="templates-for-mode"></div>
+        `;
+        
+        this.loadTemplatesForGameMode();
+    }
+    
+    loadTemplatesForGameMode() {
+        const gameMode = document.getElementById('game-mode')?.value || 'the-finals';
+        const container = document.getElementById('templates-for-mode');
+        if (!container) return;
+        
+        const templates = this.gameTemplates[gameMode] || [];
+        
+        container.innerHTML = `
+            <div class="form-group">
+                <label class="form-label">Quick Templates</label>
+                <div class="template-grid">
+                    ${templates.map(template => `
+                        <button type="button" class="template-btn" onclick="useTemplate('${template.id}', '${gameMode}')">
+                            ${template.question}
+                        </button>
+                    `).join('')}
                 </div>
-                <div style="font-size: 12px; color: #adadb8; margin-bottom: 5px;">${template.game}</div>
-                <div style="font-size: 13px; color: #efeff1;">${template.question}</div>
-            `;
-            
-            templatesList.appendChild(templateElement);
-        });
+            </div>
+        `;
     }
     
-    async saveSettings() {
-        const settings = {
-            minBits: parseInt(document.getElementById('min-bits').value),
-            maxBits: parseInt(document.getElementById('max-bits').value),
-            autoResolve: document.getElementById('auto-resolve').value
-        };
-        
-        try {
-            if (this.twitch && this.twitch.configuration) {
-                this.twitch.configuration.set('broadcaster', '', JSON.stringify({
-                    settings: JSON.stringify(settings),
-                    currentPrediction: this.currentPrediction ? JSON.stringify(this.currentPrediction) : null
-                }));
-            }
-            
-            this.showNotification('Settings saved!', 'success');
-            
-        } catch (error) {
-            console.error('Error saving settings:', error);
-            alert('Failed to save settings. Please try again.');
-        }
-    }
-    
-    loadCurrentSettings() {
-        // Set default values
-        document.getElementById('min-bits').value = 1;
-        document.getElementById('max-bits').value = 10000;
-        document.getElementById('auto-resolve').value = 'manual';
-    }
-    
-    applySettings(settings) {
-        document.getElementById('min-bits').value = settings.minBits || 1;
-        document.getElementById('max-bits').value = settings.maxBits || 10000;
-        document.getElementById('auto-resolve').value = settings.autoResolve || 'manual';
-    }
-    
-    async savePrediction(prediction) {
-        try {
-            if (this.twitch && this.twitch.configuration) {
-                const currentConfig = this.twitch.configuration.broadcaster || {};
-                const settings = currentConfig.settings || '{}';
-                
-                this.twitch.configuration.set('broadcaster', '', JSON.stringify({
-                    settings: settings,
-                    currentPrediction: JSON.stringify(prediction)
-                }));
-            }
-            
-            // TODO: Save to backend database
-            console.log('Prediction saved:', prediction);
-            
-        } catch (error) {
-            console.error('Error saving prediction:', error);
-            throw error;
-        }
-    }
-    
-    async broadcastPrediction(prediction) {
-        try {
-            if (this.twitch && this.twitch.send) {
-                this.twitch.send('broadcast', 'application/json', JSON.stringify({
-                    type: 'new_prediction',
-                    data: prediction
-                }));
-            }
-            
-            console.log('Prediction broadcasted:', prediction);
-            
-        } catch (error) {
-            console.error('Error broadcasting prediction:', error);
-            throw error;
-        }
-    }
-    
-    async broadcastPredictionEnd(prediction) {
-        try {
-            if (this.twitch && this.twitch.send) {
-                this.twitch.send('broadcast', 'application/json', JSON.stringify({
-                    type: 'prediction_ended',
-                    data: prediction
-                }));
-            }
-            
-            console.log('Prediction end broadcasted:', prediction);
-            
-        } catch (error) {
-            console.error('Error broadcasting prediction end:', error);
-            throw error;
+    useTemplate(templateId, gameMode) {
+        const template = this.gameTemplates[gameMode]?.find(t => t.id === templateId);
+        if (template) {
+            document.getElementById('prediction-question').value = template.question;
+            this.showNotification('Template loaded!', 'success');
         }
     }
     
     showNotification(message, type = 'info') {
         const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
         notification.textContent = message;
-        
-        Object.assign(notification.style, {
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            background: type === 'success' ? '#00f593' : type === 'error' ? '#ff6b6b' : '#9146ff',
-            color: 'white',
-            padding: '12px 20px',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: '600',
-            zIndex: '1000',
-            animation: 'slideIn 0.3s ease-out'
-        });
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'success' ? '#00f593' : type === 'error' ? '#ff6b6b' : '#9146ff'};
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        `;
         
         document.body.appendChild(notification);
         
         setTimeout(() => {
-            notification.style.animation = 'slideOut 0.3s ease-in';
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 300);
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
         }, 3000);
     }
 }
 
-// Global functions for template actions
-function useTemplate(templateId) {
-    const config = window.finalBetConfig;
-    const template = config.defaultTemplates.find(t => t.id === templateId);
-    
-    if (template) {
-        document.getElementById('prediction-question').value = template.question;
-        document.getElementById('prediction-type').value = template.type;
-        updatePredictionOptions();
-        
-        // Scroll to form
-        document.getElementById('prediction-form').scrollIntoView({ behavior: 'smooth' });
-        config.showNotification('Template loaded!', 'success');
-    }
-}
-
-function editTemplate(templateId) {
-    alert('Template editing will be available in a future update!');
-}
-
-function addNewTemplate() {
-    alert('Custom templates will be available in a future update!');
-}
-
-function createPrediction() {
-    const form = document.getElementById('prediction-form');
-    form.scrollIntoView({ behavior: 'smooth' });
+// Global functions
+function scrollToCreatePrediction() {
+    document.getElementById('prediction-form').scrollIntoView({ behavior: 'smooth' });
     document.getElementById('prediction-question').focus();
 }
 
-function endCurrentPrediction() {
+function closeBetting() {
     if (window.finalBetConfig) {
-        window.finalBetConfig.endCurrentPrediction();
+        window.finalBetConfig.closeBetting();
     }
 }
 
-function viewResults() {
-    alert('Results viewer will be available in a future update!');
-}
-
-function saveAsTemplate() {
-    const question = document.getElementById('prediction-question').value.trim();
-    if (!question) {
-        alert('Please enter a prediction question first!');
-        return;
-    }
-    
-    alert('Save as template functionality will be available in a future update!');
-}
-
-function saveSettings() {
+function resolvePrediction(outcome) {
     if (window.finalBetConfig) {
-        window.finalBetConfig.saveSettings();
+        window.finalBetConfig.resolvePrediction(outcome);
     }
 }
 
-function resetSettings() {
-    if (confirm('Reset all settings to defaults?')) {
-        document.getElementById('min-bits').value = 1;
-        document.getElementById('max-bits').value = 10000;
-        document.getElementById('auto-resolve').value = 'manual';
-        saveSettings();
+function cancelPrediction() {
+    if (window.finalBetConfig) {
+        window.finalBetConfig.cancelPrediction();
     }
 }
 
-function addOption() {
-    const container = document.getElementById('choice-options');
-    const optionDiv = document.createElement('div');
-    optionDiv.className = 'button-group';
-    optionDiv.style.marginBottom = '8px';
-    
-    optionDiv.innerHTML = `
-        <input type="text" class="form-input" placeholder="New Option" style="width: 200px;">
-        <button type="button" class="btn btn-secondary btn-small" onclick="removeOption(this)">Remove</button>
-    `;
-    
-    container.appendChild(optionDiv);
-}
-
-function removeOption(button) {
-    const container = document.getElementById('choice-options');
-    if (container.children.length > 2) {
-        button.parentElement.remove();
-    } else {
-        alert('You must have at least 2 options!');
+function useTemplate(templateId, gameMode) {
+    if (window.finalBetConfig) {
+        window.finalBetConfig.useTemplate(templateId, gameMode);
     }
 }
 
-// Add the same notification animations
+function viewPastResults() {
+    alert('Past results viewer coming in future update!');
+}
+
+// Add CSS for new elements
 const style = document.createElement('style');
 style.textContent = `
-    @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
+    .template-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin-top: 8px;
     }
     
-    @keyframes slideOut {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(100%);
-            opacity: 0;
-        }
+    .template-btn {
+        background: #0e0e10;
+        border: 1px solid #464649;
+        color: #efeff1;
+        padding: 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        text-align: left;
+        transition: all 0.2s;
+    }
+    
+    .template-btn:hover {
+        border-color: #dc2626;
+        background: rgba(220, 38, 38, 0.05);
+    }
+    
+    .quick-action.active-prediction {
+        border-color: #00f593;
+        background: rgba(0, 245, 147, 0.05);
+    }
+    
+    .quick-action.resolve-success:hover {
+        border-color: #00f593;
+        background: rgba(0, 245, 147, 0.1);
+    }
+    
+    .quick-action.resolve-fail:hover {
+        border-color: #ff6b6b;
+        background: rgba(255, 107, 107, 0.1);
     }
 `;
 document.head.appendChild(style);
 
-// Initialize the configuration when the page loads
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     window.finalBetConfig = new FinalBetConfig();
 });
 
-// Export for testing
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = FinalBetConfig;
 }
