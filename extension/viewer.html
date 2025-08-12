@@ -80,29 +80,31 @@
                 <div class="vote-breakdown">
                     <h5>Vote Breakdown</h5>
                     
-                    <div class="vote-option">
-                        <div class="vote-header">
-                            <span class="vote-label">YES</span>
-                            <span class="vote-stats">
+                    <div class="vote-options">
+                        <div class="vote-option-card yes-card">
+                            <div class="vote-option-header">
+                                <span class="vote-option-text">YES</span>
+                                <span class="vote-option-percentage" id="yes-percentage">0%</span>
+                            </div>
+                            <div class="vote-option-stats">
                                 <span id="yes-votes">0</span> votes • <span id="yes-bits">0</span> Bits
-                            </span>
-                            <span class="vote-percentage" id="yes-percentage">0</span>%
+                            </div>
+                            <div class="vote-progress-bar">
+                                <div class="vote-progress-fill yes-progress" id="yes-bar"></div>
+                            </div>
                         </div>
-                        <div class="vote-bar">
-                            <div class="vote-fill yes-fill" id="yes-bar"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="vote-option">
-                        <div class="vote-header">
-                            <span class="vote-label">NO</span>
-                            <span class="vote-stats">
+                        
+                        <div class="vote-option-card no-card">
+                            <div class="vote-option-header">
+                                <span class="vote-option-text">NO</span>
+                                <span class="vote-option-percentage" id="no-percentage">0%</span>
+                            </div>
+                            <div class="vote-option-stats">
                                 <span id="no-votes">0</span> votes • <span id="no-bits">0</span> Bits
-                            </span>
-                            <span class="vote-percentage" id="no-percentage">0</span>%
-                        </div>
-                        <div class="vote-bar">
-                            <div class="vote-fill no-fill" id="no-bar"></div>
+                            </div>
+                            <div class="vote-progress-bar">
+                                <div class="vote-progress-fill no-progress" id="no-bar"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
