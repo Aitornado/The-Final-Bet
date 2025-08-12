@@ -57,7 +57,60 @@
                 </div>
             </div>
 
-            <!-- No Active Predictions -->
+            <!-- Game in Progress Display -->
+            <div id="game-in-progress" class="game-progress" style="display: none;">
+                <div class="progress-header">
+                    <h4 id="game-question">Will my team win this match?</h4>
+                    <div class="game-status">🎮 GAME IN PROGRESS</div>
+                </div>
+                
+                <div class="pot-summary">
+                    <div class="pot-stats">
+                        <div class="pot-stat">
+                            <span class="pot-label">Total Pot</span>
+                            <span class="pot-value"><span id="total-pot">0</span> Bits</span>
+                        </div>
+                        <div class="pot-stat">
+                            <span class="pot-label">Total Bets</span>
+                            <span class="pot-value" id="total-bets">0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="vote-breakdown">
+                    <h5>Vote Breakdown</h5>
+                    
+                    <div class="vote-option">
+                        <div class="vote-header">
+                            <span class="vote-label">YES</span>
+                            <span class="vote-stats">
+                                <span id="yes-votes">0</span> votes • <span id="yes-bits">0</span> Bits
+                            </span>
+                            <span class="vote-percentage" id="yes-percentage">0</span>%
+                        </div>
+                        <div class="vote-bar">
+                            <div class="vote-fill yes-fill" id="yes-bar"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="vote-option">
+                        <div class="vote-header">
+                            <span class="vote-label">NO</span>
+                            <span class="vote-stats">
+                                <span id="no-votes">0</span> votes • <span id="no-bits">0</span> Bits
+                            </span>
+                            <span class="vote-percentage" id="no-percentage">0</span>%
+                        </div>
+                        <div class="vote-bar">
+                            <div class="vote-fill no-fill" id="no-bar"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="user-bet-status" class="user-bet-status" style="display: none;">
+                    <!-- User bet details populated by JavaScript -->
+                </div>
+            </div>
             <div id="no-predictions" class="no-predictions">
                 <div class="empty-state">
                     <div class="empty-icon">🎯</div>
