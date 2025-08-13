@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Final Bet - Viewer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0e0e10;
+            color: #efeff1;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .loading {
+            text-align: center;
+        }
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #464649;
+            border-top: 3px solid #dc2626;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading">
+        <div class="spinner"></div>
+        <p>Loading The Final Bet Extension...</p>
+        <div style="margin-top: 16px; font-size: 12px; color: #adadb8; text-align: center; max-width: 300px; margin-left: auto; margin-right: auto;">
+            <p><strong>🎮 For Twitch Extension Reviewers:</strong></p>
+            <p style="margin: 8px 0;">This extension provides interactive prediction betting with Twitch Bits integration</p>
+            <p style="margin: 8px 0;">✨ <strong>Demo Features Available:</strong></p>
+            <ul style="list-style: none; padding: 0; font-size: 11px; text-align: left;">
+                <li>• Test all prediction states (Active/Locked/Resolved)</li>
+                <li>• Simulate user betting with Bits</li>
+                <li>• View prediction progress and results</li>
+                <li>• Interactive testing controls included</li>
+            </ul>
+            <p style="margin: 12px 0; font-weight: bold; color: #dc2626;">Redirecting to full demo in <span id="countdown">3</span> seconds...</p>
+        </div>
+    </div>
+
+    <script>
+        let countdown = 3;
+        const countdownEl = document.getElementById('countdown');
+        
+        const timer = setInterval(() => {
+            countdown--;
+            if (countdownEl) {
+                countdownEl.textContent = countdown;
+            }
+            
+            if (countdown <= 0) {
+                clearInterval(timer);
+                window.location.href = 'https://the-final-bet.vercel.app/viewer';
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

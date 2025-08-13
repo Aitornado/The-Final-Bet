@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Final Bet - Viewer</title>
+    <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0d1117;
+            color: white;
+            overflow-x: hidden;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 100vh;
+            border: none;
+            display: block;
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .spinner {
+            width: 2rem;
+            height: 2rem;
+            border: 2px solid #374151;
+            border-top: 2px solid #dc2626;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Ensure proper sizing for Twitch overlay */
+        html, body {
+            width: 100%;
+            height: 100%;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 480px) {
+            iframe {
+                height: 100vh;
+                width: 100vw;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Loading predictions...</p>
+    </div>
+    
+    <iframe id="viewerFrame" src="/viewer" style="display: none;"></iframe>
+    
+    <script>
+        window.addEventListener('load', function() {
+            const loading = document.getElementById('loading');
+            const iframe = document.getElementById('viewerFrame');
+            
+            // Hide loading and show iframe after a short delay
+            setTimeout(() => {
+                loading.style.display = 'none';
+                iframe.style.display = 'block';
+            }, 500);
+        });
+        
+        // Handle Twitch extension lifecycle
+        if (window.Twitch && window.Twitch.ext) {
+            window.Twitch.ext.onAuthorized(function(auth) {
+                console.log('Viewer page authorized:', auth);
+                // Pass auth data to iframe
+                const iframe = document.getElementById('viewerFrame');
+                if (iframe && iframe.contentWindow) {
+                    iframe.contentWindow.postMessage({
+                        type: 'TWITCH_AUTH',
+                        auth: auth
+                    }, '*');
+                }
+            });
+            
+            window.Twitch.ext.onContext(function(context) {
+                console.log('Viewer context updated:', context);
+                // Handle context changes like theme
+                if (context.theme === 'light') {
+                    document.body.style.background = '#f9fafb';
+                    document.body.style.color = '#111827';
+                }
+                
+                // Pass context to iframe
+                const iframe = document.getElementById('viewerFrame');
+                if (iframe && iframe.contentWindow) {
+                    iframe.contentWindow.postMessage({
+                        type: 'TWITCH_CONTEXT',
+                        context: context
+                    }, '*');
+                }
+            });
+            
+            // Handle Bits transactions
+            if (window.Twitch.ext.bits) {
+                window.Twitch.ext.bits.onTransactionComplete(function(transaction) {
+                    console.log('Bits transaction completed:', transaction);
+                    // Forward transaction to iframe
+                    const iframe = document.getElementById('viewerFrame');
+                    if (iframe && iframe.contentWindow) {
+                        iframe.contentWindow.postMessage({
+                            type: 'BITS_TRANSACTION',
+                            transaction: transaction
+                        }, '*');
+                    }
+                });
+                
+                window.Twitch.ext.bits.onTransactionCancelled(function(transaction) {
+                    console.log('Bits transaction cancelled:', transaction);
+                    // Forward cancellation to iframe
+                    const iframe = document.getElementById('viewerFrame');
+                    if (iframe && iframe.contentWindow) {
+                        iframe.contentWindow.postMessage({
+                            type: 'BITS_CANCELLED',
+                            transaction: transaction
+                        }, '*');
+                    }
+                });
+            }
+        }
+        
+        // Listen for messages from the iframe
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'EXTENSION_VIEWER_READY') {
+                console.log('Viewer iframe is ready');
+            } else if (event.data.type === 'PLACE_BITS_BET') {
+                // Handle bet placement requests from iframe
+                if (window.Twitch && window.Twitch.ext && window.Twitch.ext.bits) {
+                    const { sku } = event.data;
+                    console.log('Initiating Bits transaction for:', sku);
+                    window.Twitch.ext.bits.useBits(sku);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

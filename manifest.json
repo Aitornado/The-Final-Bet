@@ -1,0 +1,95 @@
+{
+  "manifest_version": 1,
+  "id": "the-final-bet",
+  "version": "1.0.0",
+  "name": "The Final Bet",
+  "description": "Turn every gaming moment into interactive predictions. Engage your viewers with real-time betting using Twitch Bits.",
+  "summary": "Interactive prediction extension with Bits betting",
+  "developer_name": "Aitorzilla",
+  "support_email": "aitorzilla@gmail.com",
+  "website_url": "https://the-final-bet.vercel.app",
+  "privacy_policy_url": "https://the-final-bet.vercel.app/privacy",
+  "terms_of_service_url": "https://the-final-bet.vercel.app/eula",
+  "sku": "final-bet-predictions",
+  "icon_url": "https://the-final-bet.vercel.app/icon-100.png",
+  "icon_urls": {
+    "24x24": "https://the-final-bet.vercel.app/icon-24.png",
+    "100x100": "https://the-final-bet.vercel.app/icon-100.png"
+  },
+  "screenshot_urls": [
+    "https://the-final-bet.vercel.app/screenshot.png"
+  ],
+  "author_name": "Aitorzilla",
+  "views": {
+    "mobile": {
+      "viewer_url": "viewer.html",
+      "aspect_width": 375,
+      "aspect_height": 667,
+      "autoscale": true,
+      "scale_pixels": 1080,
+      "zoom": true,
+      "zoom_pixels": 1024
+    },
+    "panel": {
+      "viewer_url": "viewer.html",
+      "height": 600,
+      "can_link_external_content": false
+    },
+    "video_overlay": {
+      "viewer_url": "viewer.html",
+      "can_link_external_content": false
+    },
+    "config": {
+      "viewer_url": "config.html",
+      "can_link_external_content": false
+    }
+  },
+  "bits_enabled": true,
+  "bits_sku": "thefinalbetbits",
+  "bits_products": [
+    {
+      "sku": "bet_10",
+      "displayName": "10 Bits Bet",
+      "amount": 10,
+      "inDevelopment": false
+    },
+    {
+      "sku": "bet_50", 
+      "displayName": "50 Bits Bet",
+      "amount": 50,
+      "inDevelopment": false
+    },
+    {
+      "sku": "bet_100",
+      "displayName": "100 Bits Bet", 
+      "amount": 100,
+      "inDevelopment": false
+    },
+    {
+      "sku": "bet_500",
+      "displayName": "500 Bits Bet",
+      "amount": 500,
+      "inDevelopment": false
+    },
+    {
+      "sku": "bet_1000",
+      "displayName": "1000 Bits Bet",
+      "amount": 1000,
+      "inDevelopment": false
+    },
+    {
+      "sku": "bet_custom",
+      "displayName": "Custom Bet Amount",
+      "amount": 0,
+      "inDevelopment": false
+    }
+  ],
+  "request_identity_link": false,
+  "vendor_code": "aitorzilla",
+  "installation_requirements": {
+    "follow_requirement": "none",
+    "subscription_requirement": "none"
+  },
+  "allowlisted_config_urls": [],
+  "allowlisted_panel_urls": []
+}
