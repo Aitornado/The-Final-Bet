@@ -1,9 +1,12 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  output: 'export',
-  distDir: 'dist',
-  trailingSlash: true,
+  // Only use static export for production builds
+  ...(process.env.NODE_ENV === 'production' && {
+    output: 'export',
+    distDir: 'dist',
+    trailingSlash: true,
+  }),
   images: {
     unoptimized: true,
   },

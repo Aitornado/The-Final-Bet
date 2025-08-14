@@ -65,7 +65,7 @@ export default function GameProgress({ prediction, userBet }: GameProgressProps)
       </div>
 
       {userBet && (
-        <div className="bg-blue-800/20 border border-blue-600 rounded-lg p-3">
+        <div className="bg-blue-800/20 border border-blue-600 rounded-lg p-3 mt-6">
           <p className="text-sm">
             Your bet: <span className="font-medium">{userBet.amount} Bits on {prediction.options.find(o => o.id === userBet.option)?.text}</span>
           </p>

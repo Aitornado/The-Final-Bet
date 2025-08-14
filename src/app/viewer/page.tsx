@@ -9,16 +9,40 @@ import GameProgress from '@/components/GameProgress'
 import Leaderboard from '@/components/Leaderboard'
 
 export default function ViewerPage() {
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [twitchAuth, setTwitchAuth] = useState<TwitchAuth | null>(null)
   const [twitchContext, setTwitchContext] = useState<TwitchContext | null>(null)
   const [currentState, setCurrentState] = useState<'none' | 'active' | 'locked' | 'resolved'>('active')
   const [userBet, setUserBet] = useState<UserBet | null>(null)
   const [betTotals, setBetTotals] = useState<{yes: number, no: number}>({yes: 0, no: 0})
+  const [realPrediction, setRealPrediction] = useState<any>(null)
 
   // Mock prediction data for different states
   const getPrediction = (): Prediction | null => {
+    // Use real prediction data from streamer if available
+    if (realPrediction) {
+      return {
+        ...realPrediction,
+        options: realPrediction.options?.map((opt: any, index: number) => ({
+          id: index === 0 ? 'yes' : 'no',
+          text: opt,
+          odds: betTotals.no > 0 && betTotals.yes > 0 
+            ? (index === 0 ? betTotals.no / betTotals.yes : betTotals.yes / betTotals.no) 
+            : 2.0,
+          votes: Math.floor((index === 0 ? betTotals.yes : betTotals.no) / 50),
+          bits: index === 0 ? betTotals.yes : betTotals.no
+        })) || [
+          { id: 'yes', text: 'Yes', odds: 2.0, votes: 0, bits: betTotals.yes },
+          { id: 'no', text: 'No', odds: 2.0, votes: 0, bits: betTotals.no }
+        ],
+        totalPot: betTotals.yes + betTotals.no,
+        totalBets: Math.floor((betTotals.yes + betTotals.no) / 50),
+        timeRemaining: realPrediction.status === 'active' ? 45 : 0
+      }
+    }
+    
+    // Demo mode fallback
     if (currentState === 'none') return null
     
     const totalPot = betTotals.yes + betTotals.no
@@ -47,6 +71,7 @@ export default function ViewerPage() {
       totalBets: totalBetsCount,
       timeRemaining: currentState === 'active' ? 45 : 0,
       status: currentState === 'resolved' ? 'resolved' : currentState,
+      // DEMO MODE: Use real winning option if available, otherwise default to 'yes' for testing
       winningOption: currentState === 'resolved' ? 'yes' : undefined
     }
 
@@ -71,7 +96,19 @@ export default function ViewerPage() {
       window.Twitch.ext.onAuthorized((auth) => {
         console.log('Twitch Extension Authorized:', auth)
         setTwitchAuth(auth as unknown as TwitchAuth)
-        setIsLoading(false)
+      })
+
+      // Listen for configuration changes from streamer
+      window.Twitch.ext.configuration.onChanged(() => {
+        if (window.Twitch?.ext?.configuration?.broadcaster?.content) {
+          try {
+            const config = JSON.parse(window.Twitch.ext.configuration.broadcaster.content)
+            console.log('Received config from streamer:', config)
+            setRealPrediction(config.currentPrediction || null)
+          } catch (error) {
+            console.error('Failed to parse broadcaster config:', error)
+          }
+        }
       })
 
       // Set up context (theme, mode, etc.)
@@ -85,39 +122,44 @@ export default function ViewerPage() {
       // window.Twitch.ext.onError((err: unknown) => {
       //   console.error('Twitch Extension Error:', err)
       //   setError('Failed to connect to Twitch')
-      //   setIsLoading(false)
       // })
     } else {
       // Development mode - no Twitch available
       console.log('Development mode: Twitch Extension not available')
-      setIsLoading(false)
-      // Set some demo data for non-Twitch environments
-      setBetTotals({yes: 1250, no: 850})
-      // Start with active state for immediate demo
-      setCurrentState('active')
     }
   }, [])
 
   const handlePlaceBet = async (option: string, amount: number) => {
-    if (!prediction || !twitchAuth) return
+    // DEMO MODE: Remove auth check for local testing - uncomment for production
+    // if (!prediction || !twitchAuth) return
+    if (!prediction) return
     
     try {
+      // DEMO MODE: Comment out Twitch Bits integration for local testing
       // In production, this would use Twitch Bits
-      if (window.Twitch?.ext?.bits) {
-        // Get available products
-        const products = await window.Twitch.ext.bits.getProducts()
-        console.log('Available Bits products:', products)
-        
-        // For now, simulate the transaction
-        // In production, you'd call: window.Twitch.ext.bits.useBits(sku)
-        console.log(`Simulating Bits transaction: ${amount} bits for ${option}`)
-      }
+      // if (window.Twitch?.ext?.bits && twitchAuth) {
+      //   // Get available products
+      //   const products = await window.Twitch.ext.bits.getProducts()
+      //   console.log('Available Bits products:', products)
+      //   
+      //   // For now, simulate the transaction
+      //   // In production, you'd call: window.Twitch.ext.bits.useBits(sku)
+      //   console.log(`Simulating Bits transaction: ${amount} bits for ${option}`)
+      // }
+      
+      // Demo mode - simulate successful transaction
+      console.log(`Demo: Placing ${amount} bits bet on ${option}`)
+      
+      // Calculate proportional payout (winner takes all system)
+      const totalPot = betTotals.yes + betTotals.no + amount
+      const userSideBets = betTotals[option as keyof typeof betTotals] + amount
+      const potentialWin = totalPot > 0 ? (amount / userSideBets) * totalPot : amount
       
       const newBet: UserBet = {
         predictionId: prediction.id,
         option,
         amount,
-        potentialWin: 0 // Will be calculated with proportional system later
+        potentialWin: Math.round(potentialWin) // Proportional payout calculation
       }
       
       // Update bet totals
@@ -233,7 +275,7 @@ export default function ViewerPage() {
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
               }`}
             >
-              ✅ Prediction Resolved
+              ✅ Prediction Result
             </button>
             <button
               onClick={() => setUserBet(userBet ? null : { predictionId: 'test-prediction-1', option: 'yes', amount: 100, potentialWin: 180 })}
@@ -300,6 +342,44 @@ export default function ViewerPage() {
               prediction={prediction}
               userBet={userBet}
             />
+          </div>
+        )}
+
+        {prediction?.status === 'resolved' && (
+          <div className="bg-gray-900 rounded-lg p-4 sm:p-6 mb-4 sm:mb-6 border border-gray-800">
+            <div className="mb-4">
+              <h4 className="text-lg font-semibold mb-2">{prediction.question}</h4>
+              <div className="text-sm bg-green-600 text-white px-2 py-1 rounded inline-block">
+                ✅ Prediction Result
+              </div>
+            </div>
+
+            <div className="bg-green-800/20 border border-green-600 rounded-lg p-4 mb-4">
+              <p className="text-green-300 font-medium">
+                🎉 Winning Option: <span className="text-white">{prediction.options.find(o => o.id === prediction.winningOption)?.text}</span>
+              </p>
+            </div>
+
+            {userBet && (
+              <div className={`border rounded-lg p-3 ${
+                userBet.option === prediction.winningOption 
+                  ? 'bg-green-800/20 border-green-600' 
+                  : 'bg-red-800/20 border-red-600'
+              }`}>
+                <p className="text-sm">
+                  Your bet: <span className="font-medium">{userBet.amount} Bits on {prediction.options.find(o => o.id === userBet.option)?.text}</span>
+                </p>
+                {userBet.option === prediction.winningOption ? (
+                  <p className="text-green-300 font-medium mt-1">
+                    🏆 You won {userBet.potentialWin} Bits! (Profit: {userBet.potentialWin - userBet.amount} Bits)
+                  </p>
+                ) : (
+                  <p className="text-red-300 mt-1">
+                    😔 Better luck next time!
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

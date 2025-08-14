@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import LogoIcon from '@/components/LogoIcon'
 import ConfigSection from '@/components/config/ConfigSection'
 import QuickActions from '@/components/config/QuickActions'
@@ -20,6 +20,17 @@ export default function ConfigPage() {
   const [isConnected, setIsConnected] = useState(false)
   const [currentPrediction, setCurrentPrediction] = useState<ActivePrediction | null>(null)
   const [customQuestion, setCustomQuestion] = useState('')
+  const [payoutNotification, setPayoutNotification] = useState<{
+    winningOption: string,
+    totalPayout: number,
+    winnerCount: number
+  } | null>(null)
+  const [settingsNotification, setSettingsNotification] = useState<{
+    type: 'saved' | 'reset',
+    message: string
+  } | null>(null)
+  
+  const customQuestionInputRef = useRef<HTMLInputElement>(null)
 
   const predictionTemplates: PredictionTemplate[] = [
     {
@@ -100,26 +111,69 @@ export default function ConfigPage() {
     // Here you would typically send this to your backend service
     console.log('Creating prediction:', predictionData)
     setCurrentPrediction(predictionData)
+    
+    // Save new prediction to settings so viewers receive it
+    const updatedSettings = {
+      ...settings,
+      currentPrediction: predictionData
+    }
+    saveConfiguration(updatedSettings)
   }
 
   const endCurrentPrediction = () => {
     if (currentPrediction) {
-      setCurrentPrediction({ ...currentPrediction, status: 'locked' })
+      const lockedPrediction = { ...currentPrediction, status: 'locked' }
+      setCurrentPrediction(lockedPrediction)
+      
+      // Save locked prediction to settings so viewers see the locked state
+      const updatedSettings = {
+        ...settings,
+        currentPrediction: lockedPrediction
+      }
+      saveConfiguration(updatedSettings)
     }
   }
 
   const resolvePrediction = (winningOption: string) => {
     if (currentPrediction) {
-      setCurrentPrediction({ 
+      const resolvedPrediction = { 
         ...currentPrediction, 
         status: 'resolved',
         winningOption 
+      }
+      
+      // Calculate payout information for notification
+      const totalPayout = currentPrediction.totalPot || 2450 // Demo value for testing
+      const winnerCount = Math.floor(totalPayout / 100) || 12 // Estimate winners (demo calculation)
+      
+      // FIRST: Show payout confirmation immediately
+      setPayoutNotification({
+        winningOption,
+        totalPayout,
+        winnerCount
       })
       
-      // Auto-hide prediction after 3 seconds
+      // THEN: Update prediction status
+      setCurrentPrediction(resolvedPrediction)
+      
+      // Save resolved prediction to settings so viewers receive the result
+      const updatedSettings = {
+        ...settings,
+        currentPrediction: resolvedPrediction
+      }
+      saveConfiguration(updatedSettings)
+      
+      // Auto-hide payout notification after 3 seconds
+      setTimeout(() => {
+        setPayoutNotification(null)
+      }, 3000)
+      
+      // Auto-hide prediction after 6 seconds (3 seconds after payout disappears)
       setTimeout(() => {
         setCurrentPrediction(null)
-      }, 3000)
+        // Clear prediction from settings when hiding
+        saveConfiguration({ ...settings, currentPrediction: null })
+      }, 6000)
     }
   }
 
@@ -133,6 +187,30 @@ export default function ConfigPage() {
           </div>
           <h1 className="text-2xl font-bold text-white">The Final Bet Configuration</h1>
         </div>
+
+
+        {/* Payout Status Card */}
+        {payoutNotification && (
+          <div className="bg-gray-900 rounded-lg p-6 mb-6 border border-gray-800">
+            <h2 className="text-lg font-semibold text-white mb-4">Payout Status</h2>
+            <div className="bg-green-800/20 border border-green-600 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-300 font-medium text-lg">
+                    ✅ Payouts Completed
+                  </p>
+                  <p className="text-white text-sm mt-2">
+                    <span className="text-gray-400">Winner:</span> <span className="font-medium text-green-300">{payoutNotification.winningOption}</span>
+                  </p>
+                  <p className="text-white text-sm mt-1">
+                    <span className="text-gray-400">Distributed:</span> <span className="font-medium">{payoutNotification.totalPayout.toLocaleString()} Bits</span> to <span className="font-medium">{payoutNotification.winnerCount} winners</span>
+                  </p>
+                </div>
+                <div className="text-4xl">🎉</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Current Status */}
         {currentPrediction && (
@@ -200,9 +278,55 @@ export default function ConfigPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* How It Works - Left Side */}
-          <div className="lg:col-span-1">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Left Column: Quick Actions + How It Works */}
+          <div className="space-y-6">
+            {/* Quick Actions */}
+            <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
+              <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
+              <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={() => {
+                // Focus the custom question input field instead of using popup
+                customQuestionInputRef.current?.focus()
+                customQuestionInputRef.current?.scrollIntoView({ 
+                  behavior: 'smooth', 
+                  block: 'center' 
+                })
+              }}
+              disabled={!!currentPrediction && currentPrediction.status !== 'resolved'}
+              className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-4 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center mb-2">
+                <div className="w-6 h-6 bg-red-600 rounded mr-3 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <span className="font-medium text-white">Start New Prediction</span>
+              </div>
+              <p className="text-gray-400 text-sm">Go to prediction form below</p>
+            </button>
+            
+            <button
+              onClick={() => alert('Past Results\n\nComing soon! Prediction history and analytics will be available in a future update.')}
+              className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-4 text-left transition-colors"
+            >
+              <div className="flex items-center mb-2">
+                <div className="w-6 h-6 bg-blue-600 rounded mr-3 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
+                    <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
+                  </svg>
+                </div>
+                <span className="font-medium text-white">Past Results</span>
+              </div>
+              <p className="text-gray-400 text-sm">View previous predictions</p>
+                </button>
+              </div>
+            </div>
+
+            {/* How It Works */}
             <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
               <h2 className="text-lg font-semibold text-white mb-4">How The Final Bet Works</h2>
               <div className="space-y-4">
@@ -245,57 +369,18 @@ export default function ConfigPage() {
             </div>
           </div>
 
-          {/* Right Side Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Quick Actions */}
-            <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-              <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => {
-                const question = prompt('Enter prediction question:')
-                if (question) createPrediction(question)
-              }}
-              disabled={!!currentPrediction && currentPrediction.status !== 'resolved'}
-              className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-4 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div className="flex items-center mb-2">
-                <div className="w-6 h-6 bg-red-600 rounded mr-3 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <span className="font-medium text-white">Start New Prediction</span>
-              </div>
-              <p className="text-gray-400 text-sm">Begin betting window</p>
-            </button>
-            
-            <button
-              onClick={() => alert('Past Results\n\nComing soon! Prediction history and analytics will be available in a future update.')}
-              className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-4 text-left transition-colors"
-            >
-              <div className="flex items-center mb-2">
-                <div className="w-6 h-6 bg-blue-600 rounded mr-3 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
-                    <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
-                  </svg>
-                </div>
-                <span className="font-medium text-white">Past Results</span>
-              </div>
-              <p className="text-gray-400 text-sm">View previous predictions</p>
-                </button>
-              </div>
-            </div>
-
+          {/* Right Column: Create New Prediction */}
+          <div>
             {/* Create New Prediction */}
-            <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
+            <div className="bg-gray-900 rounded-lg p-6 border border-gray-800 h-full flex flex-col">
               <h2 className="text-lg font-semibold text-white mb-4">Create New Prediction</h2>
               <div className="mb-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-gray-400 text-sm">Playing</span>
-                  <span className="text-yellow-400 font-medium">The Finals</span>
-                  <span className="text-gray-400 text-sm">- Choose a quick template below or create custom prediction</span>
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-gray-400 text-sm">Playing</span>
+                    <span className="text-yellow-400 font-medium">The Finals</span>
+                  </div>
+                  <p className="text-gray-400 text-sm">Choose a quick template below or create custom prediction</p>
                 </div>
               </div>
               
@@ -317,15 +402,24 @@ export default function ConfigPage() {
               </div>
 
               {/* Custom Prediction */}
-              <div>
-                <h3 className="text-white font-medium mb-3">Prediction Question</h3>
-                <input
-                  type="text"
-                  value={customQuestion}
-                  onChange={(e) => setCustomQuestion(e.target.value)}
-                  placeholder="e.g., Will my team win this match?"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-red-500 focus:outline-none mb-4"
-                />
+              <div className="flex-grow flex flex-col justify-between">
+                <div className="mt-8">
+                  <h3 className="text-white font-medium mb-3">Prediction Question</h3>
+                  <input
+                    ref={customQuestionInputRef}
+                    type="text"
+                    value={customQuestion}
+                    onChange={(e) => setCustomQuestion(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && customQuestion.trim()) {
+                        createPrediction(customQuestion)
+                        setCustomQuestion('')
+                      }
+                    }}
+                    placeholder="e.g., Will my team win this match?"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-red-500 focus:outline-none"
+                  />
+                </div>
                 <button
                   onClick={() => {
                     if (customQuestion.trim()) {
@@ -334,7 +428,7 @@ export default function ConfigPage() {
                     }
                   }}
                   disabled={!!currentPrediction && currentPrediction.status !== 'resolved' || !customQuestion.trim()}
-                  className="bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4"
                 >
                   Start Betting Window
                 </button>
@@ -370,18 +464,47 @@ export default function ConfigPage() {
             
             <div className="flex gap-4">
               <button
-                onClick={() => saveConfiguration(settings)}
+                onClick={() => {
+                  saveConfiguration(settings)
+                  setSettingsNotification({
+                    type: 'saved',
+                    message: 'Settings saved!'
+                  })
+                  setTimeout(() => {
+                    setSettingsNotification(null)
+                  }, 3000)
+                }}
                 className="bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-3 rounded-lg transition-colors"
               >
                 Save Settings
               </button>
               <button
-                onClick={() => setSettings({ minBits: 1, maxBits: 10000, autoResolve: 'manual', predictionTimeout: 300 })}
+                onClick={() => {
+                  setSettings({ minBits: 1, maxBits: 10000, autoResolve: 'manual', predictionTimeout: 300 })
+                  setSettingsNotification({
+                    type: 'reset',
+                    message: 'Settings reset to defaults!'
+                  })
+                  setTimeout(() => {
+                    setSettingsNotification(null)
+                  }, 3000)
+                }}
                 className="bg-gray-600 hover:bg-gray-700 text-white font-medium px-6 py-3 rounded-lg transition-colors"
               >
                 Reset to Defaults
               </button>
             </div>
+            
+            {/* Settings Notification */}
+            {settingsNotification && (
+              <div className="mt-4 bg-green-800/20 border border-green-600 rounded-lg p-3">
+                <div className="flex items-center">
+                  <span className="text-green-300 font-medium text-sm">
+                    {settingsNotification.type === 'saved' ? '✅' : '🔄'} {settingsNotification.message}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
