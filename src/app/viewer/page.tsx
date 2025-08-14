@@ -1,22 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Prediction, UserBet, LeaderboardEntry } from '@/types/twitch'
-import { TwitchAuth, TwitchContext } from '@/types/twitch-ext'
+import { Prediction, UserBet } from '@/types/twitch'
+import { TwitchAuth } from '@/types/twitch-ext'
+import { ActivePrediction } from '@/types/config'
 import LogoIcon from '@/components/LogoIcon'
 import PredictionCard from '@/components/PredictionCard'
 import GameProgress from '@/components/GameProgress'
-import Leaderboard from '@/components/Leaderboard'
 
 export default function ViewerPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [twitchAuth, setTwitchAuth] = useState<TwitchAuth | null>(null)
-  const [twitchContext, setTwitchContext] = useState<TwitchContext | null>(null)
   const [currentState, setCurrentState] = useState<'none' | 'active' | 'locked' | 'resolved'>('active')
   const [userBet, setUserBet] = useState<UserBet | null>(null)
   const [betTotals, setBetTotals] = useState<{yes: number, no: number}>({yes: 0, no: 0})
-  const [realPrediction, setRealPrediction] = useState<any>(null)
+  const [realPrediction, setRealPrediction] = useState<ActivePrediction | null>(null)
 
   // Mock prediction data for different states
   const getPrediction = (): Prediction | null => {
@@ -24,7 +23,7 @@ export default function ViewerPage() {
     if (realPrediction) {
       return {
         ...realPrediction,
-        options: realPrediction.options?.map((opt: any, index: number) => ({
+        options: realPrediction.options?.map((opt: string, index: number) => ({
           id: index === 0 ? 'yes' : 'no',
           text: opt,
           odds: betTotals.no > 0 && betTotals.yes > 0 
@@ -38,7 +37,8 @@ export default function ViewerPage() {
         ],
         totalPot: betTotals.yes + betTotals.no,
         totalBets: Math.floor((betTotals.yes + betTotals.no) / 50),
-        timeRemaining: realPrediction.status === 'active' ? 45 : 0
+        timeRemaining: realPrediction.status === 'betting' ? 45 : 0,
+        status: realPrediction.status === 'betting' ? 'active' : realPrediction.status
       }
     }
     
@@ -80,14 +80,6 @@ export default function ViewerPage() {
 
   const prediction = getPrediction()
 
-  // Mock leaderboard data
-  const leaderboard: LeaderboardEntry[] = [
-    { rank: 1, username: 'GamerPro123', points: 850, wins: 125 },
-    { rank: 2, username: 'BettingKing', points: 720, wins: 98 },
-    { rank: 3, username: 'LuckyStreamer', points: 680, wins: 87 },
-    { rank: 4, username: 'ViewerFan', points: 450, wins: 65 },
-    { rank: 5, username: 'ChatMaster', points: 380, wins: 52 }
-  ]
 
   useEffect(() => {
     // Initialize Twitch Extension

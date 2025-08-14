@@ -2,11 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import LogoIcon from '@/components/LogoIcon'
-import ConfigSection from '@/components/config/ConfigSection'
-import QuickActions from '@/components/config/QuickActions'
-import PredictionForm from '@/components/config/PredictionForm'
-import SettingsForm from '@/components/config/SettingsForm'
-import HowItWorks from '@/components/config/HowItWorks'
 import { ExtensionSettings, PredictionTemplate, ActivePrediction } from '@/types/config'
 
 export default function ConfigPage() {
@@ -17,7 +12,6 @@ export default function ConfigPage() {
     predictionTimeout: 300
   })
 
-  const [isConnected, setIsConnected] = useState(false)
   const [currentPrediction, setCurrentPrediction] = useState<ActivePrediction | null>(null)
   const [customQuestion, setCustomQuestion] = useState('')
   const [payoutNotification, setPayoutNotification] = useState<{
@@ -66,8 +60,7 @@ export default function ConfigPage() {
   useEffect(() => {
     // Initialize Twitch extension
     if (typeof window !== 'undefined' && window.Twitch?.ext) {
-      window.Twitch.ext.onAuthorized((_auth: Record<string, unknown>) => {
-        setIsConnected(true)
+      window.Twitch.ext.onAuthorized(() => {
         loadConfiguration()
       })
 
@@ -122,7 +115,7 @@ export default function ConfigPage() {
 
   const endCurrentPrediction = () => {
     if (currentPrediction) {
-      const lockedPrediction = { ...currentPrediction, status: 'locked' }
+      const lockedPrediction: ActivePrediction = { ...currentPrediction, status: 'locked' }
       setCurrentPrediction(lockedPrediction)
       
       // Save locked prediction to settings so viewers see the locked state
@@ -136,7 +129,7 @@ export default function ConfigPage() {
 
   const resolvePrediction = (winningOption: string) => {
     if (currentPrediction) {
-      const resolvedPrediction = { 
+      const resolvedPrediction: ActivePrediction = { 
         ...currentPrediction, 
         status: 'resolved',
         winningOption 

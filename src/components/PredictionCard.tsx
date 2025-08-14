@@ -19,11 +19,6 @@ export default function PredictionCard({ prediction, userBet, onPlaceBet }: Pred
     }
   }
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
 
   return (
     <div className="bg-gray-800 rounded-xl p-4 mb-6">

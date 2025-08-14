@@ -3,6 +3,7 @@ export interface ExtensionSettings {
   maxBits: number
   autoResolve: 'manual' | 'timer'
   predictionTimeout: number
+  currentPrediction?: ActivePrediction | null
 }
 
 export interface PredictionTemplate {
