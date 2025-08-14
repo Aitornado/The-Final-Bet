@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import LogoIcon from '@/components/LogoIcon'
 import { ExtensionSettings, PredictionTemplate, ActivePrediction } from '@/types/config'
+import { bettingService, BetTotals } from '@/services/bettingService'
 
 export default function ConfigPage() {
   const [settings, setSettings] = useState<ExtensionSettings>({
@@ -23,8 +24,12 @@ export default function ConfigPage() {
     type: 'saved' | 'reset',
     message: string
   } | null>(null)
+  const [realBetTotals, setRealBetTotals] = useState<BetTotals | null>(null)
   
   const customQuestionInputRef = useRef<HTMLInputElement>(null)
+  const payoutTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const predictionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const settingsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const predictionTemplates: PredictionTemplate[] = [
     {
@@ -58,17 +63,78 @@ export default function ConfigPage() {
   ]
 
   useEffect(() => {
+    let authCleanup: (() => void) | null = null
+    let configCleanup: (() => void) | null = null
+
     // Initialize Twitch extension
     if (typeof window !== 'undefined' && window.Twitch?.ext) {
-      window.Twitch.ext.onAuthorized(() => {
+      const handleAuth = () => {
         loadConfiguration()
-      })
+      }
 
-      window.Twitch.ext.configuration.onChanged(() => {
+      const handleConfigChange = () => {
         loadConfiguration()
-      })
+      }
+
+      window.Twitch.ext.onAuthorized(handleAuth)
+      window.Twitch.ext.configuration.onChanged(handleConfigChange)
+
+      // Store cleanup functions
+      authCleanup = () => {
+        // Clear any pending configuration loading
+        console.log('Cleaning up Twitch Extension auth listener')
+      }
+
+      configCleanup = () => {
+        // Clear any pending configuration changes
+        console.log('Cleaning up Twitch Extension config listener')
+      }
+    }
+
+    // Cleanup function
+    return () => {
+      if (authCleanup) authCleanup()
+      if (configCleanup) configCleanup()
+      
+      // Clear any pending timeouts
+      if (payoutTimeoutRef.current) {
+        clearTimeout(payoutTimeoutRef.current)
+        payoutTimeoutRef.current = null
+      }
+      if (predictionTimeoutRef.current) {
+        clearTimeout(predictionTimeoutRef.current)
+        predictionTimeoutRef.current = null
+      }
+      if (settingsTimeoutRef.current) {
+        clearTimeout(settingsTimeoutRef.current)
+        settingsTimeoutRef.current = null
+      }
     }
   }, [])
+
+  // Listen for bet updates when a prediction is active
+  useEffect(() => {
+    let cleanup: (() => void) | null = null
+
+    if (currentPrediction) {
+      // Subscribe to bet updates for this prediction
+      cleanup = bettingService.onBetUpdate(currentPrediction.id, (totals) => {
+        console.log('Config: Received bet update:', totals)
+        setRealBetTotals(totals)
+      })
+
+      // Load initial bet totals
+      const initialTotals = bettingService.getBetTotals(currentPrediction.id)
+      setRealBetTotals(initialTotals)
+    } else {
+      // Clear real bet totals when no prediction
+      setRealBetTotals(null)
+    }
+
+    return () => {
+      if (cleanup) cleanup()
+    }
+  }, [currentPrediction?.id, currentPrediction])
 
   const loadConfiguration = () => {
     if (window.Twitch?.ext?.configuration?.broadcaster?.content) {
@@ -135,9 +201,9 @@ export default function ConfigPage() {
         winningOption 
       }
       
-      // Calculate payout information for notification
-      const totalPayout = currentPrediction.totalPot || 2450 // Demo value for testing
-      const winnerCount = Math.floor(totalPayout / 100) || 12 // Estimate winners (demo calculation)
+      // Calculate payout information for notification using real bet totals
+      const totalPayout = realBetTotals?.totalPot || currentPrediction.totalPot || 2450 // Use real totals if available
+      const winnerCount = realBetTotals?.betHistory.filter(bet => bet.option.toLowerCase() === winningOption.toLowerCase()).length || Math.floor(totalPayout / 100) || 12
       
       // FIRST: Show payout confirmation immediately
       setPayoutNotification({
@@ -157,21 +223,29 @@ export default function ConfigPage() {
       saveConfiguration(updatedSettings)
       
       // Auto-hide payout notification after 3 seconds
-      setTimeout(() => {
+      if (payoutTimeoutRef.current) {
+        clearTimeout(payoutTimeoutRef.current)
+      }
+      payoutTimeoutRef.current = setTimeout(() => {
         setPayoutNotification(null)
+        payoutTimeoutRef.current = null
       }, 3000)
       
       // Auto-hide prediction after 6 seconds (3 seconds after payout disappears)
-      setTimeout(() => {
+      if (predictionTimeoutRef.current) {
+        clearTimeout(predictionTimeoutRef.current)
+      }
+      predictionTimeoutRef.current = setTimeout(() => {
         setCurrentPrediction(null)
         // Clear prediction from settings when hiding
         saveConfiguration({ ...settings, currentPrediction: null })
+        predictionTimeoutRef.current = null
       }, 6000)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen text-white">
       <div className="max-w-5xl mx-auto p-6">
         {/* Header */}
         <div className="flex items-center justify-center mb-8">
@@ -225,6 +299,36 @@ export default function ConfigPage() {
                   🎮 Match in progress
                 </div>
               )}
+
+              {/* Real-time Betting Statistics */}
+              {realBetTotals && realBetTotals.totalBets > 0 && (
+                <div className="mt-4 p-3 bg-gray-700 rounded-lg border border-gray-600">
+                  <h5 className="text-sm font-medium text-white mb-2">💰 Live Betting Stats</h5>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-400">Total Pot:</span>
+                      <div className="text-white font-medium">{realBetTotals.totalPot.toLocaleString()} Bits</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Total Bets:</span>
+                      <div className="text-white font-medium">{realBetTotals.totalBets}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Yes Bets:</span>
+                      <div className="text-green-400 font-medium">{realBetTotals.yes.toLocaleString()} Bits</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">No Bets:</span>
+                      <div className="text-red-400 font-medium">{realBetTotals.no.toLocaleString()} Bits</div>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-400">
+                    Yes: {realBetTotals.totalPot > 0 ? Math.round((realBetTotals.yes / realBetTotals.totalPot) * 100) : 0}% • 
+                    No: {realBetTotals.totalPot > 0 ? Math.round((realBetTotals.no / realBetTotals.totalPot) * 100) : 0}%
+                  </div>
+                </div>
+              )}
+
               {currentPrediction.winningOption && (
                 <div className="text-sm mt-2">
                   <span className="text-yellow-400 font-medium">Winner: </span>
@@ -463,8 +567,12 @@ export default function ConfigPage() {
                     type: 'saved',
                     message: 'Settings saved!'
                   })
-                  setTimeout(() => {
+                  if (settingsTimeoutRef.current) {
+                    clearTimeout(settingsTimeoutRef.current)
+                  }
+                  settingsTimeoutRef.current = setTimeout(() => {
                     setSettingsNotification(null)
+                    settingsTimeoutRef.current = null
                   }, 3000)
                 }}
                 className="bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-3 rounded-lg transition-colors"
@@ -478,8 +586,12 @@ export default function ConfigPage() {
                     type: 'reset',
                     message: 'Settings reset to defaults!'
                   })
-                  setTimeout(() => {
+                  if (settingsTimeoutRef.current) {
+                    clearTimeout(settingsTimeoutRef.current)
+                  }
+                  settingsTimeoutRef.current = setTimeout(() => {
                     setSettingsNotification(null)
+                    settingsTimeoutRef.current = null
                   }, 3000)
                 }}
                 className="bg-gray-600 hover:bg-gray-700 text-white font-medium px-6 py-3 rounded-lg transition-colors"

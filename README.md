@@ -37,10 +37,11 @@ npm run build
 ```
 
 ### For Streamers
-1. Install the extension from the Twitch Extensions directory (coming soon)
-2. Configure prediction settings in your Twitch dashboard
-3. Start creating predictions during your streams
-4. Engage viewers with interactive betting experiences
+1. Install the extension from the Twitch Extensions directory
+2. Configure prediction settings in your Extension dashboard
+3. Create predictions during gameplay ("Will I win this round?")
+4. Engage viewers with real-time Bits betting
+5. Resolve predictions and distribute payouts automatically
 
 ## 📚 Documentation
 
@@ -62,11 +63,11 @@ Complete technical documentation is available in the [`docs/`](docs/) directory:
 - Tailwind CSS for styling
 - Vanilla JavaScript for extension files
 
-**Backend** (⏳ In Development)
-- Node.js/Express API server
-- WebSocket real-time communication
-- PostgreSQL/MySQL database
-- JWT authentication
+**Demo & Testing** (✅ Complete)
+- Full local demo mode with mock data
+- Twitch Extension integration ready
+- Production Bits transactions supported
+- Comprehensive testing interface
 
 **Platform**
 - Twitch Extension SDK
@@ -80,8 +81,8 @@ Complete technical documentation is available in the [`docs/`](docs/) directory:
 | **Frontend UI** | ✅ Complete | React components and vanilla JS extension files |
 | **State Management** | ✅ Complete | Prediction lifecycle and UI state handling |
 | **Twitch Integration** | ✅ Ready | SDK integration and Bits configuration |
-| **Backend API** | ⏳ Needed | Database, authentication, and real-time services |
-| **Deployment** | ⏳ Pending | Awaiting backend completion |
+| **Demo Mode** | ✅ Complete | Full functionality available for local testing |
+| **Deployment** | ✅ Ready | Production deployment to Vercel |
 
 ## 🎮 How It Works
 

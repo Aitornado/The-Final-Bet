@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Prediction, UserBet } from '@/types/twitch'
 import { TwitchAuth } from '@/types/twitch-ext'
 import { ActivePrediction } from '@/types/config'
 import LogoIcon from '@/components/LogoIcon'
 import PredictionCard from '@/components/PredictionCard'
 import GameProgress from '@/components/GameProgress'
+import { bettingService, generateUserId, BetTotals } from '@/services/bettingService'
 
 export default function ViewerPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -16,34 +17,62 @@ export default function ViewerPage() {
   const [userBet, setUserBet] = useState<UserBet | null>(null)
   const [betTotals, setBetTotals] = useState<{yes: number, no: number}>({yes: 0, no: 0})
   const [realPrediction, setRealPrediction] = useState<ActivePrediction | null>(null)
+  const [realBetTotals, setRealBetTotals] = useState<BetTotals | null>(null)
+  const userIdRef = useRef<string>(generateUserId())
+
+  // Function to calculate current potential winnings based on latest totals
+  const calculateCurrentPotentialWin = (userBet: UserBet, currentTotals: BetTotals): number => {
+    if (!currentTotals || currentTotals.totalPot === 0) return userBet.amount
+
+    const winnerPool = currentTotals[userBet.option.toLowerCase() as 'yes' | 'no']
+    if (winnerPool === 0) return userBet.amount
+
+    const userShare = userBet.amount / winnerPool
+    return Math.floor(userShare * currentTotals.totalPot)
+  }
 
   // Mock prediction data for different states
   const getPrediction = (): Prediction | null => {
+    console.log('🔍 DEBUG: getPrediction called', { 
+      realPrediction: !!realPrediction, 
+      currentState, 
+      betTotals,
+      realBetTotals: !!realBetTotals 
+    })
+    
     // Use real prediction data from streamer if available
     if (realPrediction) {
+      console.log('✅ DEBUG: Using real prediction from streamer')
+      // Use real bet totals if available, otherwise fall back to demo totals
+      const totals = realBetTotals || { yes: betTotals.yes, no: betTotals.no, totalPot: betTotals.yes + betTotals.no, totalBets: Math.floor((betTotals.yes + betTotals.no) / 50) }
+      
       return {
         ...realPrediction,
         options: realPrediction.options?.map((opt: string, index: number) => ({
           id: index === 0 ? 'yes' : 'no',
           text: opt,
-          odds: betTotals.no > 0 && betTotals.yes > 0 
-            ? (index === 0 ? betTotals.no / betTotals.yes : betTotals.yes / betTotals.no) 
+          odds: totals.no > 0 && totals.yes > 0 
+            ? (index === 0 ? totals.no / totals.yes : totals.yes / totals.no) 
             : 2.0,
-          votes: Math.floor((index === 0 ? betTotals.yes : betTotals.no) / 50),
-          bits: index === 0 ? betTotals.yes : betTotals.no
+          votes: Math.floor((index === 0 ? totals.yes : totals.no) / 50),
+          bits: index === 0 ? totals.yes : totals.no
         })) || [
-          { id: 'yes', text: 'Yes', odds: 2.0, votes: 0, bits: betTotals.yes },
-          { id: 'no', text: 'No', odds: 2.0, votes: 0, bits: betTotals.no }
+          { id: 'yes', text: 'Yes', odds: 2.0, votes: 0, bits: totals.yes },
+          { id: 'no', text: 'No', odds: 2.0, votes: 0, bits: totals.no }
         ],
-        totalPot: betTotals.yes + betTotals.no,
-        totalBets: Math.floor((betTotals.yes + betTotals.no) / 50),
+        totalPot: totals.totalPot,
+        totalBets: totals.totalBets,
         timeRemaining: realPrediction.status === 'betting' ? 45 : 0,
         status: realPrediction.status === 'betting' ? 'active' : realPrediction.status
       }
     }
     
     // Demo mode fallback
-    if (currentState === 'none') return null
+    console.log('🎮 DEBUG: Using demo mode, currentState:', currentState)
+    if (currentState === 'none') {
+      console.log('❌ DEBUG: Demo mode - no prediction (currentState = none)')
+      return null
+    }
     
     const totalPot = betTotals.yes + betTotals.no
     const totalBetsCount = Math.floor((betTotals.yes + betTotals.no) / 50) // Approximate number of bets
@@ -75,6 +104,7 @@ export default function ViewerPage() {
       winningOption: currentState === 'resolved' ? 'yes' : undefined
     }
 
+    console.log('✅ DEBUG: Created demo prediction:', basePrediction)
     return basePrediction
   }
 
@@ -82,16 +112,21 @@ export default function ViewerPage() {
 
 
   useEffect(() => {
+    let authCleanup: (() => void) | null = null
+    let configCleanup: (() => void) | null = null
+
     // Initialize Twitch Extension
     if (typeof window !== 'undefined' && window.Twitch?.ext) {
       // Set up authentication
-      window.Twitch.ext.onAuthorized((auth) => {
+      const handleAuth = (auth: unknown) => {
         console.log('Twitch Extension Authorized:', auth)
         setTwitchAuth(auth as unknown as TwitchAuth)
-      })
+      }
+      
+      window.Twitch.ext.onAuthorized(handleAuth)
 
       // Listen for configuration changes from streamer
-      window.Twitch.ext.configuration.onChanged(() => {
+      const handleConfigChange = () => {
         if (window.Twitch?.ext?.configuration?.broadcaster?.content) {
           try {
             const config = JSON.parse(window.Twitch.ext.configuration.broadcaster.content)
@@ -101,7 +136,9 @@ export default function ViewerPage() {
             console.error('Failed to parse broadcaster config:', error)
           }
         }
-      })
+      }
+
+      window.Twitch.ext.configuration.onChanged(handleConfigChange)
 
       // Set up context (theme, mode, etc.)
       // TODO: Fix type definition conflicts for onContext
@@ -115,55 +152,239 @@ export default function ViewerPage() {
       //   console.error('Twitch Extension Error:', err)
       //   setError('Failed to connect to Twitch')
       // })
+
+      // Store cleanup functions (Note: Twitch Extension API doesn't have explicit remove methods,
+      // but we can set cleanup callbacks to null to prevent future calls)
+      authCleanup = () => {
+        // Twitch Extension API doesn't provide direct removal methods,
+        // but we can clear our state to prevent memory issues
+        setTwitchAuth(null)
+      }
+
+      configCleanup = () => {
+        setRealPrediction(null)
+      }
     } else {
       // Development mode - no Twitch available
       console.log('Development mode: Twitch Extension not available')
     }
+
+    // Cleanup function
+    return () => {
+      if (authCleanup) authCleanup()
+      if (configCleanup) configCleanup()
+    }
   }, [])
 
-  const handlePlaceBet = async (option: string, amount: number) => {
-    // DEMO MODE: Remove auth check for local testing - uncomment for production
-    // if (!prediction || !twitchAuth) return
-    if (!prediction) return
-    
+  // Listen for bet updates when a real prediction is active
+  useEffect(() => {
+    let cleanup: (() => void) | null = null
+
+    if (realPrediction) {
+      // Subscribe to bet updates for this prediction
+      cleanup = bettingService.onBetUpdate(realPrediction.id, (totals) => {
+        console.log('Received bet update:', totals)
+        setRealBetTotals(totals)
+      })
+
+      // Load initial bet totals
+      const initialTotals = bettingService.getBetTotals(realPrediction.id)
+      setRealBetTotals(initialTotals)
+    } else {
+      // Clear real bet totals when no prediction
+      setRealBetTotals(null)
+    }
+
+    return () => {
+      if (cleanup) cleanup()
+    }
+  }, [realPrediction?.id, realPrediction])
+
+  // Update potential winnings when bet totals change
+  useEffect(() => {
+    if (userBet && realBetTotals && realPrediction?.status === 'betting') {
+      const updatedPotentialWin = calculateCurrentPotentialWin(userBet, realBetTotals)
+      
+      if (updatedPotentialWin !== userBet.potentialWin) {
+        console.log(`Updating potential win from ${userBet.potentialWin} to ${updatedPotentialWin}`)
+        setUserBet(prev => prev ? { ...prev, potentialWin: updatedPotentialWin } : null)
+      }
+    }
+  }, [realBetTotals, userBet?.amount, userBet?.option, realPrediction?.status, userBet])
+
+  // Helper function to proceed with bet placement after successful Bits transaction
+  const proceedWithBet = async (option: string, amount: number, transaction?: unknown) => {
     try {
-      // DEMO MODE: Comment out Twitch Bits integration for local testing
-      // In production, this would use Twitch Bits
-      // if (window.Twitch?.ext?.bits && twitchAuth) {
-      //   // Get available products
-      //   const products = await window.Twitch.ext.bits.getProducts()
-      //   console.log('Available Bits products:', products)
-      //   
-      //   // For now, simulate the transaction
-      //   // In production, you'd call: window.Twitch.ext.bits.useBits(sku)
-      //   console.log(`Simulating Bits transaction: ${amount} bits for ${option}`)
-      // }
+      console.log(`Processing bet: ${amount} bits on ${option}`, transaction ? 'with Bits transaction' : 'demo mode')
       
-      // Demo mode - simulate successful transaction
-      console.log(`Demo: Placing ${amount} bits bet on ${option}`)
-      
-      // Calculate proportional payout (winner takes all system)
-      const totalPot = betTotals.yes + betTotals.no + amount
-      const userSideBets = betTotals[option as keyof typeof betTotals] + amount
-      const potentialWin = totalPot > 0 ? (amount / userSideBets) * totalPot : amount
-      
-      const newBet: UserBet = {
-        predictionId: prediction.id,
-        option,
-        amount,
-        potentialWin: Math.round(potentialWin) // Proportional payout calculation
+      // Use real betting service if we have a real prediction, otherwise demo mode
+      if (realPrediction) {
+        // Place bet through betting service
+        const betData = {
+          predictionId: realPrediction.id,
+          userId: userIdRef.current,
+          option,
+          amount,
+          timestamp: Date.now(),
+          bitsTransaction: transaction // Include Bits transaction info if available
+        }
+        
+        const updatedTotals = await bettingService.placeBet(betData)
+        
+        // Calculate potential payout based on updated totals (includes this bet)
+        const potentialWin = calculateCurrentPotentialWin({
+          predictionId: realPrediction.id,
+          option,
+          amount,
+          potentialWin: 0 // placeholder
+        }, updatedTotals)
+        
+        const newBet: UserBet = {
+          predictionId: realPrediction.id,
+          option,
+          amount,
+          potentialWin
+        }
+        
+        setUserBet(newBet)
+        console.log('Real bet placed successfully:', newBet, 'Updated totals:', updatedTotals)
+        
+      } else {
+        // Demo mode fallback
+        console.log(`Demo: Placing ${amount} bits bet on ${option}`)
+        
+        // Calculate proportional payout (winner takes all system)
+        const totalPot = betTotals.yes + betTotals.no + amount
+        const userSideBets = betTotals[option as keyof typeof betTotals] + amount
+        const potentialWin = totalPot > 0 ? (amount / userSideBets) * totalPot : amount
+        
+        const newBet: UserBet = {
+          predictionId: prediction?.id || 'demo',
+          option,
+          amount,
+          potentialWin: Math.round(potentialWin)
+        }
+        
+        // Update demo bet totals
+        setBetTotals(prev => ({
+          ...prev,
+          [option]: prev[option as keyof typeof prev] + amount
+        }))
+        
+        setUserBet(newBet)
+        console.log('Demo bet placed successfully:', newBet)
       }
       
-      // Update bet totals
-      setBetTotals(prev => ({
-        ...prev,
-        [option]: prev[option as keyof typeof prev] + amount
-      }))
+    } catch (error) {
+      console.error('Failed to process bet:', error)
+      setError('Failed to place bet. Please try again.')
+    }
+  }
+
+  const handlePlaceBet = async (option: string, amount: number) => {
+    console.log('🎯 DEBUG: handlePlaceBet called', { option, amount, prediction: !!prediction, realPrediction: !!realPrediction })
+    
+    // Production auth check - require authentication for real Twitch usage
+    if (!prediction) {
+      console.log('❌ DEBUG: No prediction available')
+      setError('No prediction available. Please wait for the streamer to start a prediction.')
+      return
+    }
+    
+    // Only require Twitch auth when we have a real Twitch environment with proper auth context
+    // In development, the Twitch script loads but we don't have real auth - allow demo mode
+    const isRealTwitchEnvironment = window.Twitch?.ext?.bits && twitchAuth && twitchAuth.channelId
+    if (window.Twitch?.ext?.bits && !twitchAuth && window.parent !== window) {
+      // We're in an iframe (likely Twitch) but missing auth - this is an error
+      console.log('❌ DEBUG: Twitch Bits available but no auth in iframe environment')
+      setError('Authentication required for Bits transactions')
+      return
+    }
+    
+    try {
+      // Twitch Bits integration - only use when we have real Twitch environment
+      if (isRealTwitchEnvironment) {
+        try {
+          // Get available products
+          const products = await window.Twitch.ext.bits.getProducts()
+          console.log('Available Bits products:', products)
+          
+          // Find the appropriate Bits product for this amount
+          // Try multiple approaches to match products with different API structures
+          let bitsProduct = products.find((product: unknown) => {
+            const prod = product as Record<string, unknown>
+            const cost = prod.cost as Record<string, unknown> | undefined
+            return cost?.amount === amount || 
+                   prod.amount === amount ||
+                   prod.bits === amount
+          })
+          
+          // If no exact match, try to find custom product or closest match
+          if (!bitsProduct) {
+            bitsProduct = products.find((product: unknown) => {
+              const prod = product as Record<string, unknown>
+              return prod.sku === 'bet_custom' || 
+                     (typeof prod.sku === 'string' && prod.sku.includes('custom'))
+            })
+          }
+          
+          // If still no match, get the first available product as fallback
+          if (!bitsProduct && products.length > 0) {
+            console.warn(`No exact product match for ${amount} bits, using fallback`)
+            bitsProduct = products[0]
+          }
+          
+          if (bitsProduct) {
+            console.log(`Initiating Bits transaction for ${amount} bits with product:`, bitsProduct)
+            
+            // Set up transaction handlers before initiating
+            const handleTransactionComplete = (transaction: unknown) => {
+              console.log('Bits transaction completed successfully:', transaction)
+              // Continue with bet placement after successful transaction
+              proceedWithBet(option, amount, transaction)
+            }
+            
+            const handleTransactionCancelled = (transaction: unknown) => {
+              console.log('Bits transaction cancelled by user:', transaction)
+              setError('Bits transaction was cancelled')
+            }
+            
+            // Set up event handlers (these may need to be set only once)
+            window.Twitch.ext.bits.onTransactionComplete(handleTransactionComplete)
+            window.Twitch.ext.bits.onTransactionCancelled(handleTransactionCancelled)
+            
+            // Initiate the Bits transaction (does not return Promise)
+            try {
+              const product = bitsProduct as unknown as Record<string, unknown>
+              window.Twitch.ext.bits.useBits(product.sku as string)
+              console.log(`Bits transaction initiated with SKU: ${product.sku}`)
+            } catch (useBitsError) {
+              console.error('Failed to initiate useBits:', useBitsError)
+              setError('Failed to start Bits transaction')
+              return
+            }
+            
+            // Exit early - actual bet placement happens in transaction complete handler
+            return
+            
+          } else {
+            console.error(`No Bits product found for ${amount} bits. Available products:`, products)
+            setError(`No Bits product available for ${amount} bits. Please try a different amount.`)
+            return
+          }
+        } catch (bitsError) {
+          console.error('Bits transaction failed:', bitsError)
+          setError('Failed to initiate Bits transaction. Please try again.')
+          return
+        }
+      } else {
+        // Development mode or Bits not available
+        console.log(`Demo mode: Simulating ${amount} bits transaction for ${option}`)
+      }
       
-      setUserBet(newBet)
-      
-      // Here you would send the bet to your backend service
-      console.log('Bet placed:', newBet)
+      // If we reach here, it means we're in demo mode (no Bits)
+      console.log('No Bits available, proceeding with demo bet placement')
+      await proceedWithBet(option, amount)
       
     } catch (error) {
       console.error('Failed to place bet:', error)
@@ -207,7 +428,7 @@ export default function ViewerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen text-white">
       <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg xl:max-w-xl mx-auto p-3 sm:p-4 lg:p-6">
         {/* Header */}
         <div className="flex items-center justify-center mb-4 sm:mb-6 lg:mb-8">
@@ -362,9 +583,27 @@ export default function ViewerPage() {
                   Your bet: <span className="font-medium">{userBet.amount} Bits on {prediction.options.find(o => o.id === userBet.option)?.text}</span>
                 </p>
                 {userBet.option === prediction.winningOption ? (
-                  <p className="text-green-300 font-medium mt-1">
-                    🏆 You won {userBet.potentialWin} Bits! (Profit: {userBet.potentialWin - userBet.amount} Bits)
-                  </p>
+                  (() => {
+                    // Calculate final accurate payout based on actual final totals
+                    let finalPayout = userBet.potentialWin
+                    
+                    if (realBetTotals && realPrediction) {
+                      // Use betting service to get accurate final payout
+                      finalPayout = bettingService.calculatePayout(realPrediction.id, {
+                        predictionId: realPrediction.id,
+                        userId: userIdRef.current,
+                        option: userBet.option,
+                        amount: userBet.amount,
+                        timestamp: Date.now()
+                      }, prediction.winningOption)
+                    }
+                    
+                    return (
+                      <p className="text-green-300 font-medium mt-1">
+                        🏆 You won {finalPayout} Bits! (Profit: {finalPayout - userBet.amount} Bits)
+                      </p>
+                    )
+                  })()
                 ) : (
                   <p className="text-red-300 mt-1">
                     😔 Better luck next time!

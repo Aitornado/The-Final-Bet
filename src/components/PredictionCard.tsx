@@ -90,7 +90,10 @@ export default function PredictionCard({ prediction, userBet, onPlaceBet }: Pred
           <p className="text-sm">
             Your bet: <span className="font-medium">{userBet.amount} Bits on {prediction.options.find(o => o.id === userBet.option)?.text}</span>
           </p>
-          <p className="text-xs text-green-400">Potential win: {userBet.potentialWin} Bits</p>
+          <p className="text-xs text-green-400">
+            Current estimate: {userBet.potentialWin} Bits
+            <span className="text-gray-400 ml-1">(updates as more bets come in)</span>
+          </p>
         </div>
       )}
     </div>
