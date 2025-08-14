@@ -1,19 +1,14 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  // Only use static export for production builds
-  ...(process.env.NODE_ENV === 'production' && {
-    output: 'export',
-    distDir: 'dist',
-    trailingSlash: true,
-  }),
   images: {
     unoptimized: true,
   },
-  assetPrefix: process.env.NODE_ENV === 'production' ? 'https://your-cdn-url.com' : '',
   generateEtags: false,
   poweredByHeader: false,
   compress: true,
+  // Ensure proper routing for Twitch Extension
+  trailingSlash: true,
   // experimental: {
   //   optimizeCss: true
   // }
