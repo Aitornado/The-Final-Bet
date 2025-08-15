@@ -1,9 +1,14 @@
-<!DOCTYPE html>
+const fs = require('fs')
+const path = require('path')
+
+// Simple script to create standalone HTML files for Twitch Extension
+const createStaticHTML = (title, bodyContent, additionalStyles = '', additionalScripts = '') => {
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Final Bet - Config</title>
+    <title>${title}</title>
     <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -29,11 +34,20 @@
             color: #ffffff;
             line-height: 1.5;
         }
-        
+        ${additionalStyles}
     </style>
 </head>
 <body class="min-h-screen bg-gray-950 text-white">
-    
+    ${bodyContent}
+    ${additionalScripts}
+</body>
+</html>`
+}
+
+// Config page content
+const configHTML = createStaticHTML(
+    'The Final Bet - Config',
+    `
     <div class="min-h-screen text-white">
         <div class="max-w-5xl mx-auto p-6">
             <!-- Header -->
@@ -178,8 +192,9 @@
                 </div>
             </div>
         </div>
-    </div>
-    
+    </div>`,
+    '',
+    `
     <script>
         // Basic Twitch Extension integration for config
         if (window.Twitch && window.Twitch.ext) {
@@ -198,6 +213,177 @@
                 type: 'EXTENSION_CONFIG_READY'
             }, '*');
         }
-    </script>
-</body>
-</html>
+    </script>`
+)
+
+// Viewer page content
+const viewerHTML = createStaticHTML(
+    'The Final Bet - Viewer',
+    `
+    <div class="min-h-screen bg-gray-950 text-white flex items-center justify-center p-4">
+        <div class="max-w-md w-full">
+            <!-- Header -->
+            <div class="text-center mb-6">
+                <div class="flex items-center justify-center mb-3">
+                    <div class="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center mr-3">
+                        <div class="w-4 h-4 bg-white rounded"></div>
+                    </div>
+                    <h1 class="text-xl font-bold text-white">The Final Bet</h1>
+                </div>
+                <p class="text-gray-400 text-sm">Interactive Gaming Predictions</p>
+            </div>
+
+            <!-- Demo Prediction Card -->
+            <div class="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+                <!-- Header -->
+                <div class="bg-gray-800 px-4 py-3 border-b border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-white font-medium">Will my team win this match?</h3>
+                        <span class="px-2 py-1 bg-green-900 text-green-300 text-xs rounded-full font-medium">
+                            ACTIVE
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Betting Options -->
+                <div class="p-4">
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <button class="bg-green-700 hover:bg-green-600 text-white p-3 rounded-lg transition-colors flex flex-col items-center">
+                            <span class="font-medium">YES</span>
+                            <span class="text-xs opacity-80">2.1x payout</span>
+                        </button>
+                        <button class="bg-red-700 hover:bg-red-600 text-white p-3 rounded-lg transition-colors flex flex-col items-center">
+                            <span class="font-medium">NO</span>
+                            <span class="text-xs opacity-80">1.8x payout</span>
+                        </button>
+                    </div>
+
+                    <!-- Bits Selection -->
+                    <div class="mb-4">
+                        <label class="block text-gray-300 text-sm mb-2">Select Bits Amount:</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button class="bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white py-2 rounded transition-colors">
+                                10
+                            </button>
+                            <button class="bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white py-2 rounded transition-colors">
+                                50
+                            </button>
+                            <button class="bg-purple-700 hover:bg-purple-600 border border-purple-600 text-white py-2 rounded transition-colors">
+                                100
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="bg-gray-800 rounded-lg p-3">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="text-gray-400">Total Pool:</span>
+                            <span class="text-white font-medium">2,450 Bits</span>
+                        </div>
+                        <div class="flex justify-between text-sm mb-3">
+                            <span class="text-gray-400">Total Bets:</span>
+                            <span class="text-white font-medium">47 predictions</span>
+                        </div>
+                        
+                        <!-- Progress bars -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-green-400">YES: 60%</span>
+                                <span class="text-red-400">NO: 40%</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-2">
+                                <div class="bg-gradient-to-r from-green-500 to-red-500 h-2 rounded-full" style="background: linear-gradient(to right, #10b981 0%, #10b981 60%, #ef4444 60%, #ef4444 100%);"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Demo notification -->
+                    <div class="mt-4 bg-blue-900/20 border border-blue-600 rounded-lg p-3">
+                        <div class="flex items-center">
+                            <div class="text-blue-400 mr-2 text-sm">🎮</div>
+                            <p class="text-blue-200 text-xs">
+                                This is a demo. In the live extension, you'll place real Bits bets!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Progress -->
+            <div class="mt-4 bg-gray-900 rounded-lg border border-gray-800 p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-white font-medium">Current Game</h4>
+                    <span class="text-yellow-400 text-sm">In Progress</span>
+                </div>
+                <div class="flex items-center text-sm text-gray-400">
+                    <span class="mr-2">🎯</span>
+                    <span>The Finals - Tournament Match</span>
+                </div>
+            </div>
+        </div>
+    </div>`,
+    '',
+    `
+    <script>
+        // Basic Twitch Extension integration for viewer
+        if (window.Twitch && window.Twitch.ext) {
+            window.Twitch.ext.onAuthorized(function(auth) {
+                console.log('Viewer authorized:', auth);
+            });
+            
+            window.Twitch.ext.onContext(function(context) {
+                console.log('Viewer context:', context);
+            });
+            
+            // Handle Bits transactions
+            if (window.Twitch.ext.bits) {
+                window.Twitch.ext.bits.onTransactionComplete(function(transaction) {
+                    console.log('Bits transaction completed:', transaction);
+                    // Handle successful transaction
+                });
+                
+                window.Twitch.ext.bits.onTransactionCancelled(function(transaction) {
+                    console.log('Bits transaction cancelled:', transaction);
+                });
+            }
+        }
+        
+        // Send ready message to parent if in iframe  
+        if (window.parent !== window) {
+            window.parent.postMessage({
+                type: 'EXTENSION_VIEWER_READY'
+            }, '*');
+        }
+        
+        // Demo interaction handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle bet option clicks
+            document.querySelectorAll('button').forEach(button => {
+                if (button.textContent.includes('YES') || button.textContent.includes('NO')) {
+                    button.addEventListener('click', function() {
+                        const option = this.textContent.includes('YES') ? 'yes' : 'no';
+                        console.log('Demo bet placed:', option);
+                        
+                        // Show demo notification
+                        const notification = document.createElement('div');
+                        notification.className = 'fixed top-4 right-4 bg-green-900 border border-green-600 text-green-300 px-4 py-2 rounded-lg z-50';
+                        notification.textContent = 'Demo bet placed for ' + option.toUpperCase() + '!';
+                        document.body.appendChild(notification);
+                        
+                        setTimeout(() => {
+                            notification.remove();
+                        }, 3000);
+                    });
+                }
+            });
+        });
+    </script>`
+)
+
+// Write the files
+fs.writeFileSync(path.join(__dirname, '../public/config.html'), configHTML)
+fs.writeFileSync(path.join(__dirname, '../public/viewer.html'), viewerHTML)
+
+console.log('✅ Static HTML files generated successfully!')
+console.log('📁 Config: public/config.html')
+console.log('📁 Viewer: public/viewer.html')
